@@ -1,0 +1,5 @@
+.env
+build
+.vscode
+.cache
+log.txt
