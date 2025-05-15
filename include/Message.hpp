@@ -21,6 +21,7 @@ public:
 	std::string method();
 	nlohmann::json params();
 	int id();
+	std::string documentURI();
 
 	static void log(const std::string_view& s);
 };

@@ -43,11 +43,25 @@ void LSPServer::server_main(LSPServer* server)
             {
                   if (message.method() == "textDocument/didOpen")
                   {
-                        openDocuments.emplace(message.params()["textDocument"]["uri"],  message.params()["textDocument"]["text"] );
+                        openDocuments.emplace(message.documentURI(),  message.params()["textDocument"]["text"] );
+                  }
+                  else if (message.method() == "textDocument/didChange")
+                  {
+                        static std::vector<nlohmann::json> contentChanges;
+                        if (0 == openDocuments.count(message.documentURI())) {continue;} // Some error, TODO: handle this
+
+                        assert(message.params()["contentChanges"].is_array());
+                        contentChanges = message.params()["contentChanges"];
+                        for (auto& j: contentChanges) { 
+                              Range contentChanged = j["range"];
+                              int startIndex = openDocuments.at(message.documentURI()).findPos(contentChanged.start);
+                              int endIndex = openDocuments.at(message.documentURI()).findPos(contentChanged.end);
+                              openDocuments.at(message.documentURI()).m_content.replace(startIndex, endIndex-startIndex, j["text"]);
+                        }
                   }
                   else if (message.method() == "textDocument/didClose")
                   {
-                        openDocuments.erase(message.params()["textDocument"]["uri"]);
+                        openDocuments.erase(message.documentURI());
                   }
             }
             else // Request
@@ -56,7 +70,7 @@ void LSPServer::server_main(LSPServer* server)
 
                   if (message.method() == "initialize")
                   {
-                        InitializeResult initResult{{"utf-16", ServerCapabilities::TextDocumentSyncOptions::None, ServerCapabilities::hoverProvider | ServerCapabilities::definitionProvider}, {"LSPP", "1.0"}};
+                        InitializeResult initResult{{"utf-16", ServerCapabilities::TextDocumentSyncOptions::Incremental, ServerCapabilities::hoverProvider | ServerCapabilities::definitionProvider}, {"LSPP", "1.0"}};
                         responseData = {{"id", message.id()}, {"result", initResult}};
                   }
                   else if (message.method() == "textDocument/hover")

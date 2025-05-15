@@ -149,3 +149,21 @@ std::string textDocument::wordUnderCursor(Position cursorPosition)
       word_start++;
       return line.substr(word_start, word_end - word_start);
 }
+
+int textDocument::findPos(const Position &position)
+{
+      std::istringstream stream(m_content);
+      std::string line;
+      int result = 0;
+
+      for (int l = 0; l < position.line; l++){
+            std::getline(stream, line);
+            result+= line.length() + 1; // Take into account \n character
+      }
+
+      for (int c =0; c < position.character; c++) {
+            stream.get();
+            result++;
+      }
+      return result;
+}

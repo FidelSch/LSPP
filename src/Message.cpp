@@ -78,6 +78,12 @@ int Message::id(){
 	return m_jsonData["id"];
 }
 
+std::string Message::documentURI()
+{
+	if (m_jsonData.is_discarded() || !params().contains("textDocument")) return "";
+      return params()["textDocument"]["uri"];
+}
+
 void Message::log(const std::string_view& s)
 {
 	static char* logfile = std::getenv("LSPP_LOG_FILE");

@@ -398,6 +398,7 @@ struct textDocument {
       std::string getLine(int n);
       static bool isWordDelimiter(const char c);
       std::string wordUnderCursor(Position cursorPosition);
+      int findPos(const Position& position);
 };
 
 struct textDocumentPositionParams
