@@ -15,5 +15,5 @@ int main() {
 	server.init(ServerCapabilities::hoverProvider | ServerCapabilities::definitionProvider);
 	// server.stop();
 
-	return 0;
+	return server.exit();
 }

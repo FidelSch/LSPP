@@ -6,7 +6,7 @@
 #include "ProtocolStructures.hpp"
 #include <map>
 
-LSPServer::LSPServer(): m_listener(), is_running(false) {}
+LSPServer::LSPServer(): m_listener(), force_shutdown(false) {}
 
 LSPServer::~LSPServer()
 {
@@ -15,7 +15,7 @@ LSPServer::~LSPServer()
 
 int LSPServer::init(const uint64_t& capabilities)
 {
-      is_running = true;
+      force_shutdown = false;
       m_capabilities.advertisedCapabilities = capabilities;
       m_listener = std::thread(server_main, this);
       return 0;
@@ -23,9 +23,20 @@ int LSPServer::init(const uint64_t& capabilities)
 
 void LSPServer::stop()
 {
-      is_running = false;
-      m_listener.join();
+      force_shutdown = true;
       return;
+}
+
+int LSPServer::exit()
+{
+      m_listener.join();
+
+      Message m;
+      do {
+            m.readMessage(std::cin);
+      } while (m.method() != "exit");
+
+      return force_shutdown? 1: 0;
 }
 
 std::map<std::string, textDocument> openDocuments;
@@ -34,7 +45,7 @@ void LSPServer::server_main(LSPServer* server)
       Message message;
       textDocument document;
 
-      do
+      while (!server->force_shutdown)
       {
             message.readMessage(std::cin);
             Message::log(message.get());
@@ -81,18 +92,20 @@ void LSPServer::server_main(LSPServer* server)
                   {
                         // responseData["result"] = {{"uri", ""}, {"range", {Position{3, 2}}}};
                   }
-                  else if (message.method() == "shutdown"){
+                  else if (message.method() == "shutdown"){ // Expected server shutdown
                         responseData["result"] = NULL;
-                        break;
+                        return;
+                  }
+                  else if (message.method() == "exit"){ // Unexpected server shutdown
+                        responseData["result"] = NULL;
+                        server->stop();
                   }
 
                   Message::log(responseData.dump());
                   std::cout << "Content-Length: " + std::to_string(responseData.dump().length()) + "\r\n\r\n" << responseData.dump();
             }
 
-      } while (server->is_running);
-
-      server->is_running = false;
+      }
 }
 
 hoverResult hoverCallback(const hoverParams &params)
