@@ -378,6 +378,12 @@ struct Position
       uint character;
 };
 
+struct Range
+{
+      Position start;
+      Position end;
+};
+
 struct textDocumentIdentifier {
       std::string uri;
 };
@@ -428,7 +434,9 @@ void to_json(nlohmann::json &j, const textDocumentIdentifier &p);
 void to_json(nlohmann::json &j, const hoverParams &p);
 void to_json(nlohmann::json &j, const MarkupContent &p);
 void to_json(nlohmann::json &j, const hoverResult &p);
+void to_json(nlohmann::json &j, const Range &r);
 
 void from_json(const nlohmann::json &j, Position &p);
 void from_json(const nlohmann::json &j, textDocumentIdentifier &p);
 void from_json(const nlohmann::json &j, hoverParams &p);
+void from_json(const nlohmann::json &j, Range &r);
