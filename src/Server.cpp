@@ -90,7 +90,7 @@ void LSPServer::server_main(LSPServer* server)
                   }
                   else if (message.method() == "textDocument/definition")
                   {
-                        // responseData["result"] = {{"uri", ""}, {"range", {Position{3, 2}}}};
+                        responseData["result"] = definitionCallback(message.params());
                   }
                   else if (message.method() == "shutdown"){ // Expected server shutdown
                         responseData["result"] = NULL;
@@ -111,4 +111,12 @@ void LSPServer::server_main(LSPServer* server)
 hoverResult hoverCallback(const hoverParams &params)
 {
       return hoverResult{MarkupKind::PlainText, "some response for: " + openDocuments.at(params.textDocument.uri).wordUnderCursor(params.position)};
+}
+
+definitionResult definitionCallback(const definitionParams &params)
+{
+      return definitionResult{
+            .uri=params.textDocument.uri,
+            .range={{0, 0},params.position}
+      };
 }

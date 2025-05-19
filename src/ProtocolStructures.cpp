@@ -71,6 +71,14 @@ void to_json(nlohmann::json &j, const Range &r) {
       j = {{"start", r.start}, {"end", r.end}};
 }
 
+void to_json(nlohmann::json &j, const Location &l) {
+      j = {{"range", l.range}, {"uri", l.uri}};
+}
+
+void to_json(nlohmann::json &j, const definitionParams &l) {
+      j = {{"textDocument", l.textDocument}, {"position", l.position}};
+}
+
 void to_json(nlohmann::json &j, const hoverParams &p)
 {
       j = nlohmann::json{ {"textDocument", p.textDocument}, {"position", p.position} };
@@ -96,6 +104,16 @@ void from_json(const nlohmann::json &j, hoverParams &p)
 void from_json(const nlohmann::json &j, Range &r) {
       j.at("start").get_to(r.start);
       j.at("end").get_to(r.end);
+}
+
+void from_json(const nlohmann::json &j, Location &l) {
+      j.at("range").get_to(l.range);
+      j.at("uri").get_to(l.uri);
+}
+
+void from_json(const nlohmann::json &j, definitionParams &l) {
+      j.at("textDocument").get_to(l.textDocument);
+      j.at("position").get_to(l.position);
 }
 
 textDocument::textDocument(): m_content("") { }

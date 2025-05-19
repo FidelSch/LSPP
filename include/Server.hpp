@@ -16,3 +16,4 @@ public:
 };
 
 hoverResult hoverCallback(const hoverParams &params);
+definitionResult definitionCallback(const definitionParams &params);

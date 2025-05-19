@@ -384,6 +384,13 @@ struct Range
       Position end;
 };
 
+typedef std::string DocumentUri;
+struct Location
+{
+      DocumentUri uri;
+      Range range;
+};
+
 struct textDocumentIdentifier {
       std::string uri;
 };
@@ -418,14 +425,20 @@ struct MarkupContent
       std::string value;
 };
 
+// Results
 struct hoverResult
 {
       MarkupContent contents;
       // Range range;
 };
+typedef Location definitionResult;
+
+// Params
 struct hoverParams: public textDocumentPositionParams {};
+struct definitionParams: public textDocumentPositionParams {};
 
 
+// Serialization
 void to_json(nlohmann::json &j, const ServerCapabilities::TextDocumentSyncOptions &syncOptions);
 void to_json(nlohmann::json &j, const ServerCapabilities &capabilities);
 void to_json(nlohmann::json &j, const ServerInfo &serverInfo);
@@ -436,8 +449,13 @@ void to_json(nlohmann::json &j, const hoverParams &p);
 void to_json(nlohmann::json &j, const MarkupContent &p);
 void to_json(nlohmann::json &j, const hoverResult &p);
 void to_json(nlohmann::json &j, const Range &r);
+void to_json(nlohmann::json &j, const Location &l);
+void to_json(nlohmann::json &j, const definitionParams &l);
 
+// Deserialization
 void from_json(const nlohmann::json &j, Position &p);
 void from_json(const nlohmann::json &j, textDocumentIdentifier &p);
 void from_json(const nlohmann::json &j, hoverParams &p);
 void from_json(const nlohmann::json &j, Range &r);
+void from_json(const nlohmann::json &j, Location &l);
+void from_json(const nlohmann::json &j, definitionParams &l);
