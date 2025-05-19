@@ -41,7 +41,8 @@ void to_json(nlohmann::json &j, const ServerCapabilities &capabilities)
       if (capabilities.advertisedCapabilities & ServerCapabilities::workspaceSymbolProvider) j["workspaceSymbolProvider"] = true;
 }
 
-void to_json(nlohmann::json &j, const ServerInfo &serverInfo){
+void to_json(nlohmann::json &j, const ServerInfo &serverInfo)
+{
       j = nlohmann::json{{"name", serverInfo.name}, {"version", serverInfo.version}};
 }
 
@@ -57,31 +58,31 @@ void to_json(nlohmann::json &j, const Position &p)
 
 void to_json(nlohmann::json &j, const textDocumentIdentifier &p)
 {
-      j = { {"uri", p.uri} };
+      j = {{"uri", p.uri}};
 }
 
-void to_json(nlohmann::json &j, const MarkupContent &p){
-      j = { {"kind", p.kind}, {"value", p.value} };
+void to_json(nlohmann::json &j, const MarkupContent &p)
+{
+      j = {{"kind", p.kind}, {"value", p.value}};
 }
-void to_json(nlohmann::json &j, const hoverResult &p){
-      j = { {"contents", p.contents} };
+void to_json(nlohmann::json &j, const hoverResult &h)
+{
+      j = {{"contents", h.contents}};
 }
 
-void to_json(nlohmann::json &j, const Range &r) {
+void to_json(nlohmann::json &j, const Range &r)
+{
       j = {{"start", r.start}, {"end", r.end}};
 }
 
-void to_json(nlohmann::json &j, const Location &l) {
+void to_json(nlohmann::json &j, const Location &l)
+{
       j = {{"range", l.range}, {"uri", l.uri}};
 }
 
-void to_json(nlohmann::json &j, const definitionParams &l) {
-      j = {{"textDocument", l.textDocument}, {"position", l.position}};
-}
-
-void to_json(nlohmann::json &j, const hoverParams &p)
+void to_json(nlohmann::json &j, const textDocumentPositionParams &td)
 {
-      j = nlohmann::json{ {"textDocument", p.textDocument}, {"position", p.position} };
+      j = {{"textDocument", td.textDocument}, {"position", td.position}};
 }
 
 void from_json(const nlohmann::json &j, Position &p)
@@ -95,46 +96,46 @@ void from_json(const nlohmann::json &j, textDocumentIdentifier &p)
       j.at("uri").get_to(p.uri);
 }
 
-void from_json(const nlohmann::json &j, hoverParams &p)
+void from_json(const nlohmann::json &j, Range &r)
 {
-      j.at("textDocument").get_to(p.textDocument);
-      j.at("position").get_to(p.position);
-}
-
-void from_json(const nlohmann::json &j, Range &r) {
       j.at("start").get_to(r.start);
       j.at("end").get_to(r.end);
 }
 
-void from_json(const nlohmann::json &j, Location &l) {
+void from_json(const nlohmann::json &j, Location &l)
+{
       j.at("range").get_to(l.range);
       j.at("uri").get_to(l.uri);
 }
 
-void from_json(const nlohmann::json &j, definitionParams &l) {
-      j.at("textDocument").get_to(l.textDocument);
-      j.at("position").get_to(l.position);
+void from_json(const nlohmann::json &j, textDocumentPositionParams &td)
+{
+      j.at("textDocument").get_to(td.textDocument);
+      j.at("position").get_to(td.position);
 }
 
-textDocument::textDocument(): m_content("") { }
+textDocument::textDocument() : m_content("") {}
 
-textDocument::textDocument(const std::string &content): m_content(content) { }
+textDocument::textDocument(const std::string &content) : m_content(content) {}
 
 std::string textDocument::getLine(int n)
 {
       std::istringstream stream(m_content);
       std::string line;
 
-      if (n < 0) return "";
+      if (n < 0)
+            return "";
 
       do
       {
             std::getline(stream, line);
             n--;
       } while (n >= 0 && stream.good());
-      
-      if (n == -1) return line;
-      else return "";
+
+      if (n == -1)
+            return line;
+      else
+            return "";
 }
 
 bool textDocument::isWordDelimiter(const char c)
@@ -150,8 +151,10 @@ std::string textDocument::wordUnderCursor(Position cursorPosition)
 {
       std::string line = getLine(cursorPosition.line);
 
-      if (cursorPosition.character < 0 || cursorPosition.character >= line.length()) return "";
-      if (textDocument::isWordDelimiter(line[cursorPosition.character])) return "";
+      if (cursorPosition.character < 0 || cursorPosition.character >= line.length())
+            return "";
+      if (textDocument::isWordDelimiter(line[cursorPosition.character]))
+            return "";
 
       int word_start = cursorPosition.character, word_end = cursorPosition.character;
 
@@ -174,12 +177,14 @@ int textDocument::findPos(const Position &position)
       std::string line;
       int result = 0;
 
-      for (int l = 0; l < position.line; l++){
+      for (int l = 0; l < position.line; l++)
+      {
             std::getline(stream, line);
-            result+= line.length() + 1; // Take into account \n character
+            result += line.length() + 1; // Take into account \n character
       }
 
-      for (int c =0; c < position.character; c++) {
+      for (int c = 0; c < position.character; c++)
+      {
             stream.get();
             result++;
       }

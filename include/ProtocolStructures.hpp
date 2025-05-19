@@ -445,17 +445,15 @@ void to_json(nlohmann::json &j, const ServerInfo &serverInfo);
 void to_json(nlohmann::json &j, const InitializeResult &initResult);
 void to_json(nlohmann::json &j, const Position &p);
 void to_json(nlohmann::json &j, const textDocumentIdentifier &p);
-void to_json(nlohmann::json &j, const hoverParams &p);
 void to_json(nlohmann::json &j, const MarkupContent &p);
-void to_json(nlohmann::json &j, const hoverResult &p);
+void to_json(nlohmann::json &j, const hoverResult &h);
 void to_json(nlohmann::json &j, const Range &r);
 void to_json(nlohmann::json &j, const Location &l);
-void to_json(nlohmann::json &j, const definitionParams &l);
+void to_json(nlohmann::json &j, const textDocumentPositionParams &td);
 
 // Deserialization
 void from_json(const nlohmann::json &j, Position &p);
 void from_json(const nlohmann::json &j, textDocumentIdentifier &p);
-void from_json(const nlohmann::json &j, hoverParams &p);
 void from_json(const nlohmann::json &j, Range &r);
 void from_json(const nlohmann::json &j, Location &l);
-void from_json(const nlohmann::json &j, definitionParams &l);
+void from_json(const nlohmann::json &j, textDocumentPositionParams &td);
