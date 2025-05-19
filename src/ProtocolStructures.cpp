@@ -68,6 +68,8 @@ void to_json(nlohmann::json &j, const MarkupContent &p)
 void to_json(nlohmann::json &j, const hoverResult &h)
 {
       j = {{"contents", h.contents}};
+
+      if (h.range.has_value()) j["range"] = h.range.value();
 }
 
 void to_json(nlohmann::json &j, const Range &r)

@@ -110,7 +110,10 @@ void LSPServer::server_main(LSPServer* server)
 
 hoverResult hoverCallback(const hoverParams &params)
 {
-      return hoverResult{MarkupKind::PlainText, "some response for: " + openDocuments.at(params.textDocument.uri).wordUnderCursor(params.position)};
+      return hoverResult{
+            .contents = {MarkupKind::PlainText, "some response for: " + openDocuments.at(params.textDocument.uri).wordUnderCursor(params.position)},
+            .range = std::nullopt
+      };
 }
 
 definitionResult definitionCallback(const definitionParams &params)

@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include "nlohmann/json.hpp"
+#include <optional>
 
 
 /**
@@ -429,7 +430,7 @@ struct MarkupContent
 struct hoverResult
 {
       MarkupContent contents;
-      // Range range;
+      std::optional<Range> range;
 };
 typedef Location definitionResult;
 
