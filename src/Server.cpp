@@ -92,6 +92,10 @@ void LSPServer::server_main(LSPServer* server)
                   {
                         responseData["result"] = definitionCallback(message.params());
                   }
+                  else if (message.method() == "textDocument/declaration")
+                  {
+                        responseData["result"] = declarationCallback(message.params());
+                  }
                   else if (message.method() == "shutdown"){ // Expected server shutdown
                         responseData["result"] = NULL;
                         return;
