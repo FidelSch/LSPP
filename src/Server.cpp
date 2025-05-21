@@ -84,15 +84,15 @@ void LSPServer::server_main(LSPServer* server)
                         InitializeResult initResult{{"utf-16", ServerCapabilities::TextDocumentSyncOptions::Incremental, ServerCapabilities::hoverProvider | ServerCapabilities::definitionProvider}, {"LSPP", "1.0"}};
                         responseData = {{"id", message.id()}, {"result", initResult}};
                   }
-                  else if (message.method() == "textDocument/hover")
+                  else if (message.method() == "textDocument/hover" && server->m_capabilities.advertisedCapabilities & ServerCapabilities::hoverProvider)
                   {
                         responseData["result"] = hoverCallback(message.params());
                   }
-                  else if (message.method() == "textDocument/definition")
+                  else if (message.method() == "textDocument/definition" && server->m_capabilities.advertisedCapabilities & ServerCapabilities::definitionProvider)
                   {
                         responseData["result"] = definitionCallback(message.params());
                   }
-                  else if (message.method() == "textDocument/declaration")
+                  else if (message.method() == "textDocument/declaration" && server->m_capabilities.advertisedCapabilities & ServerCapabilities::declarationProvider)
                   {
                         responseData["result"] = declarationCallback(message.params());
                   }
