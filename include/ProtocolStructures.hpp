@@ -415,6 +415,16 @@ struct textDocumentPositionParams
       Position position;
 };
 
+typedef std::string ProgressToken;
+
+struct workDoneProgressParams {
+      std::optional<ProgressToken> workDoneToken;
+};
+
+struct PartialResultParams {
+      std::optional<ProgressToken> partialResultToken;
+};
+
 namespace MarkupKind {
       static constexpr const char* PlainText = "plaintext";
       static constexpr const char* Markdown = "markdown";
@@ -432,11 +442,13 @@ struct hoverResult
       MarkupContent contents;
       std::optional<Range> range;
 };
-typedef Location definitionResult;
+struct declarationResult: public Location {};
+struct definitionResult: public Location {};
 
 // Params
-struct hoverParams: public textDocumentPositionParams {};
-struct definitionParams: public textDocumentPositionParams {};
+struct hoverParams: public textDocumentPositionParams, workDoneProgressParams, PartialResultParams {};
+struct declarationParams: public textDocumentPositionParams, workDoneProgressParams, PartialResultParams {};
+struct definitionParams: public textDocumentPositionParams, workDoneProgressParams, PartialResultParams {};
 
 
 // Serialization

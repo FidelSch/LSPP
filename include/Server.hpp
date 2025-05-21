@@ -17,3 +17,8 @@ public:
 
 hoverResult hoverCallback(const hoverParams &params);
 definitionResult definitionCallback(const definitionParams &params);
+declarationResult declarationCallback(const declarationParams &params);
+
+#define DEFAULT_HOVER_RESULT { {MarkupKind::PlainText, "some response for: " + openDocuments.at(params.textDocument.uri).wordUnderCursor(params.position)}, std::nullopt }
+#define DEFAULT_DEFINITION_RESULT { params.textDocument.uri, {{0, 0}, params.position} }
+#define DEFAULT_DECLARATION_RESULT { params.textDocument.uri, {{0, 0}, params.position} }
