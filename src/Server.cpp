@@ -6,7 +6,28 @@
 #include "ProtocolStructures.hpp"
 #include <map>
 
-LSPServer::LSPServer(): m_listener(), force_shutdown(false) {}
+void LSPServer::updateDocumentBuffer(const DidChangeTextDocumentParams& params)
+{
+      if (0 == m_openDocuments.count(params.textDocument.uri))
+            return;
+
+      textDocument& document = m_openDocuments.at(params.textDocument.uri);
+      for (auto &j : params.contentChanges)
+      {
+            if (j.range.has_value())
+            {
+                  const Range& contentChanged = j.range.value();
+
+                  int startIndex = document.findPos(contentChanged.start);
+                  int endIndex = document.findPos(contentChanged.end);
+
+                  document.m_content.replace(startIndex, endIndex - startIndex, j.text);
+            }
+            else document.m_content = j.text;
+      }
+}
+
+LSPServer::LSPServer() : m_listener(), force_shutdown(false) {}
 
 LSPServer::~LSPServer()
 {
@@ -39,7 +60,6 @@ int LSPServer::exit()
       return force_shutdown? 1: 0;
 }
 
-std::map<std::string, textDocument> openDocuments;
 void LSPServer::server_main(LSPServer* server)
 {
       Message message;
@@ -54,25 +74,15 @@ void LSPServer::server_main(LSPServer* server)
             {
                   if (message.method() == "textDocument/didOpen")
                   {
-                        openDocuments.emplace(message.documentURI(),  message.params()["textDocument"]["text"] );
+                        server->m_openDocuments.emplace(message.documentURI(),  message.params()["textDocument"]["text"] );
                   }
                   else if (message.method() == "textDocument/didChange")
                   {
-                        static std::vector<nlohmann::json> contentChanges;
-                        if (0 == openDocuments.count(message.documentURI())) {continue;} // Some error, TODO: handle this
-
-                        assert(message.params()["contentChanges"].is_array());
-                        contentChanges = message.params()["contentChanges"];
-                        for (auto& j: contentChanges) { 
-                              Range contentChanged = j["range"];
-                              int startIndex = openDocuments.at(message.documentURI()).findPos(contentChanged.start);
-                              int endIndex = openDocuments.at(message.documentURI()).findPos(contentChanged.end);
-                              openDocuments.at(message.documentURI()).m_content.replace(startIndex, endIndex-startIndex, j["text"]);
-                        }
+                        server->updateDocumentBuffer(message.params());
                   }
                   else if (message.method() == "textDocument/didClose")
                   {
-                        openDocuments.erase(message.documentURI());
+                        server->m_openDocuments.erase(message.documentURI());
                   }
             }
             else // Request
@@ -86,15 +96,15 @@ void LSPServer::server_main(LSPServer* server)
                   }
                   else if (message.method() == "textDocument/hover" && server->m_capabilities.advertisedCapabilities & ServerCapabilities::hoverProvider)
                   {
-                        responseData["result"] = hoverCallback(message.params());
+                        responseData["result"] = server->hoverCallback(message.params());
                   }
                   else if (message.method() == "textDocument/definition" && server->m_capabilities.advertisedCapabilities & ServerCapabilities::definitionProvider)
                   {
-                        responseData["result"] = definitionCallback(message.params());
+                        responseData["result"] = server->definitionCallback(message.params());
                   }
                   else if (message.method() == "textDocument/declaration" && server->m_capabilities.advertisedCapabilities & ServerCapabilities::declarationProvider)
                   {
-                        responseData["result"] = declarationCallback(message.params());
+                        responseData["result"] = server->declarationCallback(message.params());
                   }
                   else if (message.method() == "shutdown"){ // Expected server shutdown
                         responseData["result"] = NULL;
@@ -112,17 +122,17 @@ void LSPServer::server_main(LSPServer* server)
       }
 }
 
-hoverResult hoverCallback(const hoverParams &params)
+hoverResult LSPServer::hoverCallback(const hoverParams &params)
 {
       return DEFAULT_HOVER_RESULT;
 }
 
-definitionResult definitionCallback(const definitionParams &params)
+definitionResult LSPServer::definitionCallback(const definitionParams &params)
 {
       return DEFAULT_DEFINITION_RESULT;
 }
 
-declarationResult declarationCallback(const declarationParams & params)
+declarationResult LSPServer::declarationCallback(const declarationParams & params)
 {
       return DEFAULT_DECLARATION_RESULT;
 }

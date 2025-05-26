@@ -396,6 +396,10 @@ struct textDocumentIdentifier {
       std::string uri;
 };
 
+struct versionedTextDocumentIdentifier: public textDocumentIdentifier {
+      int version;
+};
+
 struct textDocument {
       static constexpr const char word_delimiters[] = " `~!@#$%^&*()-=+[{]}\\|;:'\",.<>/?";
       // std::string m_uri;
@@ -406,7 +410,7 @@ struct textDocument {
       std::string getLine(int n);
       static bool isWordDelimiter(const char c);
       std::string wordUnderCursor(Position cursorPosition);
-      int findPos(const Position& position);
+      int findPos(const Position& position) const;
 };
 
 struct textDocumentPositionParams
@@ -434,6 +438,17 @@ struct MarkupContent
 {
       std::string kind;
       std::string value;
+};
+
+struct TextDocumentContentChangeEvent {
+      std::optional<Range> range;
+      std::optional<uint> rangeLength;
+      std::string text;
+};
+
+struct DidChangeTextDocumentParams {
+      textDocumentIdentifier textDocument;
+      std::vector<TextDocumentContentChangeEvent> contentChanges;
 };
 
 // Results
@@ -470,3 +485,6 @@ void from_json(const nlohmann::json &j, textDocumentIdentifier &p);
 void from_json(const nlohmann::json &j, Range &r);
 void from_json(const nlohmann::json &j, Location &l);
 void from_json(const nlohmann::json &j, textDocumentPositionParams &td);
+void from_json(const nlohmann::json &j, TextDocumentContentChangeEvent &td);
+void from_json(const nlohmann::json &j, DidChangeTextDocumentParams &p);
+void from_json(const nlohmann::json &j, versionedTextDocumentIdentifier &td);

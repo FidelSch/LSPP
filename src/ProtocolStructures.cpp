@@ -116,6 +116,25 @@ void from_json(const nlohmann::json &j, textDocumentPositionParams &td)
       j.at("position").get_to(td.position);
 }
 
+void from_json(const nlohmann::json &j, TextDocumentContentChangeEvent &td)
+{
+      j.at("text").get_to(td.text);
+      if (j.contains("range")) j.at("range").get_to(td.range);
+      if (j.contains("rangeLength")) j.at("rangeLength").get_to(td.rangeLength);
+}
+
+void from_json(const nlohmann::json &j, DidChangeTextDocumentParams &p)
+{
+      p.contentChanges = j.at("contentChanges");
+      j.at("textDocument").get_to(p.textDocument);
+}
+
+void from_json(const nlohmann::json &j, versionedTextDocumentIdentifier &td)
+{
+      j.at("uri").get_to(td.uri);
+      j.at("version").get_to(td.version);
+}
+
 textDocument::textDocument() : m_content("") {}
 
 textDocument::textDocument(const std::string &content) : m_content(content) {}
@@ -173,7 +192,7 @@ std::string textDocument::wordUnderCursor(Position cursorPosition)
       return line.substr(word_start, word_end - word_start);
 }
 
-int textDocument::findPos(const Position &position)
+int textDocument::findPos(const Position &position) const
 {
       std::istringstream stream(m_content);
       std::string line;
