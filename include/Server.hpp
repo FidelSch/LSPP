@@ -1,5 +1,6 @@
 #include <thread>
 #include "ProtocolStructures.hpp"
+#include "textDocument.hpp"
 
 
 class LSPServer {
@@ -23,6 +24,6 @@ public:
 };
 
 
-#define DEFAULT_HOVER_RESULT { {MarkupKind::PlainText, "some response for: " + m_openDocuments.at(params.textDocument.uri).wordUnderCursor(params.position)}, std::nullopt }
+#define DEFAULT_HOVER_RESULT { {MarkupKind::PlainText, "some response for: " + m_openDocuments.at(params.textDocument.uri).wordUnderCursor(params.position.line, params.position.character)}, std::nullopt }
 #define DEFAULT_DEFINITION_RESULT { params.textDocument.uri, {{0, 0}, params.position} }
 #define DEFAULT_DECLARATION_RESULT { params.textDocument.uri, {{0, 0}, params.position} }

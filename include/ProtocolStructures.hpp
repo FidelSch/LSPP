@@ -400,19 +400,6 @@ struct versionedTextDocumentIdentifier: public textDocumentIdentifier {
       int version;
 };
 
-struct textDocument {
-      static constexpr const char word_delimiters[] = " `~!@#$%^&*()-=+[{]}\\|;:'\",.<>/?";
-      // std::string m_uri;
-      std::string m_content;
-
-      textDocument();
-      textDocument(const std::string& content);
-      std::string getLine(int n);
-      static bool isWordDelimiter(const char c);
-      std::string wordUnderCursor(Position cursorPosition);
-      int findPos(const Position& position) const;
-};
-
 struct textDocumentPositionParams
 {
       textDocumentIdentifier textDocument;

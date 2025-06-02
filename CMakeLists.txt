@@ -17,7 +17,7 @@ link_directories(include/)
 
 
 
-add_executable(main src/main.cpp src/Message.cpp src/Server.cpp src/ProtocolStructures.cpp )
+add_executable(main src/main.cpp src/Message.cpp src/Server.cpp src/ProtocolStructures.cpp src/textDocument.cpp)
 
 
 add_executable(test_message test/test_message.cpp src/Message.cpp)
@@ -27,7 +27,7 @@ add_test(NAME test_message
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/build
 )
 
-add_executable(test_server test/test_server.cpp src/Server.cpp src/Message.cpp src/ProtocolStructures.cpp )
+add_executable(test_server test/test_server.cpp src/Server.cpp src/Message.cpp src/ProtocolStructures.cpp src/textDocument.cpp)
 target_link_libraries(test_server gtest gtest_main)
 add_test(NAME test_server 
     COMMAND test_server
@@ -41,7 +41,7 @@ add_test(NAME test_json
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/build
 )
 
-add_executable(test_textDocument test/test_textDocument.cpp src/ProtocolStructures.cpp)
+add_executable(test_textDocument test/test_textDocument.cpp src/textDocument.cpp)
 target_link_libraries(test_textDocument gtest gtest_main)
 add_test(NAME test_textDocument 
     COMMAND test_textDocument

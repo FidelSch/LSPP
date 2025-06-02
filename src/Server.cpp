@@ -18,8 +18,8 @@ void LSPServer::updateDocumentBuffer(const DidChangeTextDocumentParams& params)
             {
                   const Range& contentChanged = j.range.value();
 
-                  int startIndex = document.findPos(contentChanged.start);
-                  int endIndex = document.findPos(contentChanged.end);
+                  int startIndex = document.findPos(contentChanged.start.line, contentChanged.start.character);
+                  int endIndex = document.findPos(contentChanged.end.line, contentChanged.end.character);
 
                   document.m_content.replace(startIndex, endIndex - startIndex, j.text);
             }

@@ -1,6 +1,5 @@
-
 #include <gtest/gtest.h>
-#include "ProtocolStructures.hpp"
+#include "textDocument.hpp"
 
 TEST(textDocument, getLine)
 {
@@ -34,14 +33,17 @@ TEST(textDocument, wordDelimiter)
 }
 
 TEST(textDocument, wordUnderCursor) {
-      textDocument td("Lorem ipsum dolor sit amet consectetur adipiscing elit\n Consectetur adipiscing elit quisque faucibus ex sapien vitae\n Ex sapien vitae pellentesque sem placerat in id\n Placerat in id{cursus}mi pretium tellus duis\n Pretium tellus duis convallis tempus leo eu aenean\n");
+      textDocument td("Lorem ipsum dolor sit amet consectetur adipiscing elit\nConsectetur adipiscing elit quisque faucibus ex sapien vitae\n Ex sapien vitae pellentesque sem placerat in id\n Placerat in id{cursus}mi pretium tellus duis\n Pretium tellus duis convallis tempus leo eu aenean\n");
 
-      ASSERT_STREQ("dolor", td.wordUnderCursor({0, 12}).c_str());
-      ASSERT_STREQ("elit", td.wordUnderCursor({1, 25}).c_str());
-      ASSERT_STREQ("", td.wordUnderCursor({2, 3}).c_str());
-      ASSERT_STREQ("", td.wordUnderCursor({0, 200}).c_str());
-      ASSERT_STREQ("cursus", td.wordUnderCursor({3, 18}).c_str());
-      ASSERT_STREQ("", td.wordUnderCursor({3, 15}).c_str());
+      ASSERT_STREQ("dolor", td.wordUnderCursor(0, 12).c_str());
+      ASSERT_STREQ("elit", td.wordUnderCursor(1, 25).c_str());
+      ASSERT_STREQ("", td.wordUnderCursor(2, 3).c_str());
+      ASSERT_STREQ("", td.wordUnderCursor(0, 200).c_str());
+      ASSERT_STREQ("cursus", td.wordUnderCursor(3, 18).c_str());
+      ASSERT_STREQ("", td.wordUnderCursor(3, 15).c_str());
+      ASSERT_STREQ("Lorem", td.wordUnderCursor(0, 0).c_str());
+      ASSERT_STREQ("elit", td.wordUnderCursor(0, 53).c_str());
+      ASSERT_STREQ("Consectetur", td.wordUnderCursor(1, 0).c_str());
 }
 
 int main(){
