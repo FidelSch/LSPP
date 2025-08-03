@@ -1,12 +1,4 @@
-#include <cstdio>
-#include <fstream>
-#include <iostream>
-#include <string>
-#include "Message.hpp"
-#include "nlohmann/json.hpp"
 #include "Server.hpp"
-#include "ProtocolStructures.hpp"
-
 
 int main() {
 
