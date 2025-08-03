@@ -18,10 +18,25 @@ public:
 	nlohmann::json jsonData() const;
 	int readMessage(std::istream& stream);
 
-	std::string method();
-	nlohmann::json params();
-	int id();
-	std::string documentURI();
+	std::string method_description() const;
+	nlohmann::json params() const;
+	int id() const;
+	std::string documentURI() const;
 
 	static void log(const std::string_view& s);
+
+	enum Method {
+		NONE,
+		INITIALIZE,
+		SHUTDOWN,
+		EXIT,
+		HOVER,
+		DEFINITION,
+		DECLARATION,
+		TEXT_DOCUMENT_DID_OPEN,
+		TEXT_DOCUMENT_DID_CHANGE,
+		TEXT_DOCUMENT_DID_CLOSE
+	};
+
+	Method method() const;
 };

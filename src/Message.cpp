@@ -62,23 +62,36 @@ int Message::readMessage(std::istream &stream)
 	return m_payloadSize;
 }
 
-std::string Message::method()
+std::string Message::method_description() const
 {
 	if (m_jsonData.is_discarded()) return "";
       return m_jsonData["method"];
 }
 
-nlohmann::json Message::params()
+Message::Method Message::method() const
+{
+	std::string methodStr = method_description();
+	if (methodStr == "initialize") return Message::Method::INITIALIZE;
+	else if (methodStr == "shutdown") return Message::Method::SHUTDOWN;
+	else if (methodStr == "exit") return Message::Method::EXIT;
+	else if (methodStr == "textDocument/hover") return Message::Method::HOVER;
+	else if (methodStr == "textDocument/definition") return Message::Method::DEFINITION;
+	else if (methodStr == "textDocument/declaration") return Message::Method::DECLARATION;
+
+	return Message::Method::NONE; // Default case
+}
+
+nlohmann::json Message::params() const
 {
       return m_jsonData["params"];
 }
 
-int Message::id(){
+int Message::id() const {
 	if (m_jsonData.is_discarded() || !m_jsonData.contains("id")) return 0;
 	return m_jsonData["id"];
 }
 
-std::string Message::documentURI()
+std::string Message::documentURI() const
 {
 	if (m_jsonData.is_discarded() || !params().contains("textDocument")) return "";
       return params()["textDocument"]["uri"];

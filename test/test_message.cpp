@@ -38,7 +38,8 @@ TEST(Message, parsing) {
       Message m;
       m.readMessage(example);
 
-      ASSERT_STREQ("initialize", m.method().c_str());
+      ASSERT_STREQ("initialize", m.method_description().c_str());
+      ASSERT_EQ(Message::Method::INITIALIZE, m.method());
       ASSERT_EQ(1, m.id());
 }
 

@@ -55,7 +55,7 @@ int LSPServer::exit()
       Message m;
       do {
             m.readMessage(std::cin);
-      } while (m.method() != "exit");
+      } while (m.method() != Message::Method::EXIT);
 
       return force_shutdown? 1: 0;
 }
@@ -72,47 +72,74 @@ void LSPServer::server_main(LSPServer* server)
 
             if (message.id() == 0) // Notification
             {
-                  if (message.method() == "textDocument/didOpen")
+                  switch (message.method())
                   {
-                        server->m_openDocuments.emplace(message.documentURI(),  message.params()["textDocument"]["text"] );
-                  }
-                  else if (message.method() == "textDocument/didChange")
-                  {
-                        server->updateDocumentBuffer(message.params());
-                  }
-                  else if (message.method() == "textDocument/didClose")
-                  {
-                        server->m_openDocuments.erase(message.documentURI());
+                        case Message::Method::TEXT_DOCUMENT_DID_OPEN:
+                        {
+                              server->m_openDocuments.emplace(message.documentURI(), message.params()["textDocument"]["text"]);
+                              break;
+                        }
+                        case Message::Method::TEXT_DOCUMENT_DID_CHANGE:
+                        {
+                              server->updateDocumentBuffer(message.params());
+                              break;
+                        }
+                        case Message::Method::TEXT_DOCUMENT_DID_CLOSE:
+                        {
+                              server->m_openDocuments.erase(message.documentURI());
+                              break;
+                        }
+                        default:
+                              break;
                   }
             }
             else // Request
             {
                   nlohmann::json responseData{{"id", message.id()}};
 
-                  if (message.method() == "initialize")
+                  switch (message.method())
                   {
-                        InitializeResult initResult{{"utf-16", ServerCapabilities::TextDocumentSyncOptions::Incremental, ServerCapabilities::hoverProvider | ServerCapabilities::definitionProvider}, {"LSPP", "1.0"}};
-                        responseData = {{"id", message.id()}, {"result", initResult}};
-                  }
-                  else if (message.method() == "textDocument/hover" && server->m_capabilities.advertisedCapabilities & ServerCapabilities::hoverProvider)
-                  {
-                        responseData["result"] = server->hoverCallback(message.params());
-                  }
-                  else if (message.method() == "textDocument/definition" && server->m_capabilities.advertisedCapabilities & ServerCapabilities::definitionProvider)
-                  {
-                        responseData["result"] = server->definitionCallback(message.params());
-                  }
-                  else if (message.method() == "textDocument/declaration" && server->m_capabilities.advertisedCapabilities & ServerCapabilities::declarationProvider)
-                  {
-                        responseData["result"] = server->declarationCallback(message.params());
-                  }
-                  else if (message.method() == "shutdown"){ // Expected server shutdown
-                        responseData["result"] = NULL;
-                        return;
-                  }
-                  else if (message.method() == "exit"){ // Unexpected server shutdown
-                        responseData["result"] = NULL;
-                        server->stop();
+                        case Message::Method::INITIALIZE:
+                        {
+                              InitializeResult initResult{{"utf-16", ServerCapabilities::TextDocumentSyncOptions::Incremental, ServerCapabilities::hoverProvider | ServerCapabilities::definitionProvider}, {"LSPP", "1.0"}};
+                              responseData = {{"id", message.id()}, {"result", initResult}};
+                              break;
+                        }
+                        case Message::Method::SHUTDOWN:
+                              responseData["result"] = nullptr;
+                              server->stop();
+                              break;
+                        case Message::Method::EXIT:
+                              responseData["result"] = nullptr;
+                              server->stop();
+                              return; // Exit the server main loop
+                        case Message::Method::HOVER:
+                        {
+                              if (server->m_capabilities.advertisedCapabilities & ServerCapabilities::hoverProvider)
+                              {
+                                    responseData["result"] = server->hoverCallback(message.params());
+                              }
+                              break;
+                        }
+                        case Message::Method::DEFINITION:
+                        {
+                              if (server->m_capabilities.advertisedCapabilities & ServerCapabilities::definitionProvider)
+                              {
+                                    responseData["result"] = server->definitionCallback(message.params());
+                              }
+                              break;
+                        }
+                        case Message::Method::DECLARATION:
+                        {
+                              if (server->m_capabilities.advertisedCapabilities & ServerCapabilities::declarationProvider)
+                              {
+                                    responseData["result"] = server->declarationCallback(message.params());
+                              }
+                              break;
+                        }
+                        case Message::Method::NONE:
+                        default:
+                              responseData["error"] = {{"code", -32601}, {"message", "Method not found"}};
                   }
 
                   Message::log(responseData.dump());
