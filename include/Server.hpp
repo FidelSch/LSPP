@@ -1,11 +1,13 @@
 #include <thread>
 #include "ProtocolStructures.hpp"
 #include "textDocument.hpp"
+#include "Message.hpp"
 
 
 class LSPServer {
       std::thread m_listener;
       bool force_shutdown;
+      bool isOKtoExit;
       ServerCapabilities m_capabilities;
       std::map<std::string, textDocument> m_openDocuments;
 
@@ -17,6 +19,9 @@ public:
       void stop();
       int exit();
       static void server_main(LSPServer* server);
+      bool hasCapability(uint64_t capability) const;
+      Response processRequest(const Message& message);
+      void processNotification(const Message& message);
 
       hoverResult hoverCallback(const hoverParams &params);
       definitionResult definitionCallback(const definitionParams &params);

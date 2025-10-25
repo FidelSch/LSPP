@@ -37,6 +37,7 @@ LSPServer::~LSPServer()
 int LSPServer::init(const uint64_t& capabilities)
 {
       force_shutdown = false;
+      isOKtoExit = false;
       m_capabilities.advertisedCapabilities = capabilities;
       m_listener = std::thread(server_main, this);
       return 0;
@@ -52,12 +53,7 @@ int LSPServer::exit()
 {
       m_listener.join();
 
-      Message m;
-      do {
-            m.readMessage(std::cin);
-      } while (m.method() != Message::Method::EXIT);
-
-      return force_shutdown? 1: 0;
+      return isOKtoExit? 0: 1;
 }
 
 void LSPServer::server_main(LSPServer* server)
@@ -68,84 +64,17 @@ void LSPServer::server_main(LSPServer* server)
       while (!server->force_shutdown)
       {
             message.readMessage(std::cin);
-            Message::log(message.get());
+            Message::log("INBOUND: " + message.get());
 
             if (message.id() == 0) // Notification
             {
-                  switch (message.method())
-                  {
-                        case Message::Method::TEXT_DOCUMENT_DID_OPEN:
-                        {
-                              server->m_openDocuments.emplace(message.documentURI(), message.params()["textDocument"]["text"]);
-                              break;
-                        }
-                        case Message::Method::TEXT_DOCUMENT_DID_CHANGE:
-                        {
-                              server->updateDocumentBuffer(message.params());
-                              break;
-                        }
-                        case Message::Method::TEXT_DOCUMENT_DID_CLOSE:
-                        {
-                              server->m_openDocuments.erase(message.documentURI());
-                              break;
-                        }
-                        default:
-                              break;
-                  }
+                  server->processNotification(message);
             }
             else // Request
             {
-                  nlohmann::json responseData{{"id", message.id()}};
-
-                  switch (message.method())
-                  {
-                        case Message::Method::INITIALIZE:
-                        {
-                              InitializeResult initResult{{"utf-16", ServerCapabilities::TextDocumentSyncOptions::Incremental, ServerCapabilities::hoverProvider | ServerCapabilities::definitionProvider}, {"LSPP", "1.0"}};
-                              responseData = {{"id", message.id()}, {"result", initResult}};
-                              break;
-                        }
-                        case Message::Method::SHUTDOWN:
-                              responseData["result"] = nullptr;
-                              server->stop();
-                              break;
-                        case Message::Method::EXIT:
-                              responseData["result"] = nullptr;
-                              server->stop();
-                              return; // Exit the server main loop
-                        case Message::Method::HOVER:
-                        {
-                              if (server->m_capabilities.advertisedCapabilities & ServerCapabilities::hoverProvider)
-                              {
-                                    responseData["result"] = server->hoverCallback(message.params());
-                              }
-                              break;
-                        }
-                        case Message::Method::DEFINITION:
-                        {
-                              if (server->m_capabilities.advertisedCapabilities & ServerCapabilities::definitionProvider)
-                              {
-                                    responseData["result"] = server->definitionCallback(message.params());
-                              }
-                              break;
-                        }
-                        case Message::Method::DECLARATION:
-                        {
-                              if (server->m_capabilities.advertisedCapabilities & ServerCapabilities::declarationProvider)
-                              {
-                                    responseData["result"] = server->declarationCallback(message.params());
-                              }
-                              break;
-                        }
-                        case Message::Method::NONE:
-                        default:
-                              responseData["error"] = {{"code", -32601}, {"message", "Method not found"}};
-                  }
-
-                  Message::log(responseData.dump());
-                  std::cout << "Content-Length: " + std::to_string(responseData.dump().length()) + "\r\n\r\n" << responseData.dump();
+                  Response response = server->processRequest(message);
+                  std::cout << response.toString();
             }
-
       }
 }
 
@@ -162,4 +91,85 @@ definitionResult LSPServer::definitionCallback(const definitionParams &params)
 declarationResult LSPServer::declarationCallback(const declarationParams & params)
 {
       return DEFAULT_DECLARATION_RESULT;
+}
+
+bool LSPServer::hasCapability(uint64_t capability) const
+{
+      return (m_capabilities.advertisedCapabilities & capability);
+}
+
+Response LSPServer::processRequest(const Message &message)
+{
+      Response response(message);
+
+      switch (message.method())
+      {
+      case Message::Method::INITIALIZE:
+      {
+            InitializeResult initResult{{"utf-16", ServerCapabilities::TextDocumentSyncOptions::Incremental, ServerCapabilities::hoverProvider | ServerCapabilities::definitionProvider}, {"LSPP", "1.0"}};
+            response.setResult(initResult);
+            break;
+      }
+      case Message::Method::EXIT:
+            isOKtoExit = true;
+            [[fallthrough]]; 
+      case Message::Method::SHUTDOWN:
+            response.setResult(nullptr);
+            stop();
+            break; 
+      case Message::Method::HOVER:
+      {
+            if (hasCapability(ServerCapabilities::hoverProvider))
+            {
+                  response.setResult(hoverCallback(message.params()));
+            }
+            break;
+      }
+      case Message::Method::DEFINITION:
+      {
+            if (hasCapability(ServerCapabilities::definitionProvider))
+            {
+                  response.setResult(definitionCallback(message.params()));
+            }
+            break;
+      }
+      case Message::Method::DECLARATION:
+      {
+            if (hasCapability(ServerCapabilities::declarationProvider))
+            {
+                  response.setResult(declarationCallback(message.params()));
+            }
+            break;
+      }
+      case Message::Method::NONE:
+      default:
+            response.setError({{"code", -32601}, {"message", "Method not found"}});
+      }
+
+      Message::log("OUTBOUND: " + response.data.dump());
+      return response;
+}
+
+void LSPServer::processNotification(const Message &message)
+{
+      switch (message.method())
+      {
+      case Message::Method::TEXT_DOCUMENT_DID_OPEN:
+      {
+            m_openDocuments.emplace(message.documentURI(), message.params()["textDocument"]["text"]);
+            break;
+      }
+      case Message::Method::TEXT_DOCUMENT_DID_CHANGE:
+      {
+            updateDocumentBuffer(message.params());
+            break;
+      }
+      case Message::Method::TEXT_DOCUMENT_DID_CLOSE:
+      {
+            m_openDocuments.erase(message.documentURI());
+            break;
+      }
+      default:
+            break;
+      }
 }

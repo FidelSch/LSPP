@@ -1,3 +1,4 @@
+#pragma once
 #include <cstddef>
 #include <memory>
 #include <string>
@@ -39,4 +40,23 @@ public:
 	};
 
 	Method method() const;
+};
+
+class Response {
+public:
+    nlohmann::json data;
+
+    explicit Response(const Message& message): data({{"id", message.id()}}){}
+
+    void setResult(const nlohmann::json& result) {
+	  data["result"] = result;
+    }
+
+    void setError(const nlohmann::json& error) {
+	  data["error"] = error;
+    }
+
+    std::string toString() const {
+	  return "Content-Length: " + std::to_string(data.dump().length()) + "\r\n\r\n" + data.dump();
+    }
 };
