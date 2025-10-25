@@ -31,6 +31,7 @@ LSPServer::LSPServer() : m_listener(), force_shutdown(false), m_input_stream(&st
 
 LSPServer::~LSPServer()
 {
+      stop();
       exit();
 }
 
@@ -55,9 +56,8 @@ void LSPServer::stop()
 
 int LSPServer::exit()
 {
-      // Always request shutdown before joining to avoid hangs
-      stop();
       if (m_listener.joinable())
+            // Wait for listener thread to finish
             m_listener.join();
       return isOKtoExit? 0: 1;
 }
