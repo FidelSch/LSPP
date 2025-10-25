@@ -5,6 +5,7 @@
 #include <climits>
 #include <cassert>
 #include <fstream>
+#include <optional>
 
 Message::Message(): m_buffer(nullptr), m_payloadSize(0) {}
 
@@ -86,9 +87,9 @@ nlohmann::json Message::params() const
       return m_jsonData["params"];
 }
 
-int Message::id() const {
-	if (m_jsonData.is_discarded() || !m_jsonData.contains("id")) return 0;
-	return m_jsonData["id"];
+std::optional<int> Message::id() const {
+	if (m_jsonData.is_discarded() || !m_jsonData.contains("id")) return std::nullopt;
+	return m_jsonData["id"].get<int>();
 }
 
 std::string Message::documentURI() const

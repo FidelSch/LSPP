@@ -66,7 +66,7 @@ void LSPServer::server_main(LSPServer* server)
             message.readMessage(std::cin);
             Message::log("INBOUND: " + message.get());
 
-            if (message.id() == 0) // Notification
+            if (!message.id().has_value()) // Notification
             {
                   server->processNotification(message);
             }

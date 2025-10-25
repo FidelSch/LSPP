@@ -3,6 +3,7 @@
 #include <memory>
 #include <string>
 #include <nlohmann/json.hpp>
+#include <optional>
 
 class Message {
 	char* m_buffer;
@@ -21,7 +22,7 @@ public:
 
 	std::string method_description() const;
 	nlohmann::json params() const;
-	int id() const;
+	std::optional<int> id() const;
 	std::string documentURI() const;
 
 	static void log(const std::string_view& s);
