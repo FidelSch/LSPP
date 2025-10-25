@@ -27,18 +27,22 @@ void LSPServer::updateDocumentBuffer(const DidChangeTextDocumentParams& params)
       }
 }
 
-LSPServer::LSPServer() : m_listener(), force_shutdown(false) {}
+LSPServer::LSPServer() : m_listener(), force_shutdown(false), m_input_stream(&std::cin), m_output_stream(&std::cout) {}
 
 LSPServer::~LSPServer()
 {
-      m_listener.join();
+      exit();
 }
 
-int LSPServer::init(const uint64_t& capabilities)
+int LSPServer::init(const uint64_t& capabilities, std::istream& in, std::ostream& out)
 {
       force_shutdown = false;
       isOKtoExit = false;
       m_capabilities.advertisedCapabilities = capabilities;
+
+      m_input_stream = &in;
+      m_output_stream = &out;
+
       m_listener = std::thread(server_main, this);
       return 0;
 }
@@ -51,8 +55,10 @@ void LSPServer::stop()
 
 int LSPServer::exit()
 {
-      m_listener.join();
-
+      // Always request shutdown before joining to avoid hangs
+      stop();
+      if (m_listener.joinable())
+            m_listener.join();
       return isOKtoExit? 0: 1;
 }
 
@@ -63,7 +69,7 @@ void LSPServer::server_main(LSPServer* server)
 
       while (!server->force_shutdown)
       {
-            message.readMessage(std::cin);
+            message.readMessage(*server->m_input_stream);
             Message::log("INBOUND: " + message.get());
 
             if (!message.id().has_value()) // Notification
@@ -73,7 +79,7 @@ void LSPServer::server_main(LSPServer* server)
             else // Request
             {
                   Response response = server->processRequest(message);
-                  std::cout << response.toString();
+                  (*server->m_output_stream) << response.toString();
             }
       }
 }
@@ -106,7 +112,7 @@ Response LSPServer::processRequest(const Message &message)
       {
       case Message::Method::INITIALIZE:
       {
-            InitializeResult initResult{{"utf-16", ServerCapabilities::TextDocumentSyncOptions::Incremental, ServerCapabilities::hoverProvider | ServerCapabilities::definitionProvider}, {"LSPP", "1.0"}};
+            InitializeResult initResult{{"utf-16", ServerCapabilities::TextDocumentSyncOptions::Incremental, m_capabilities.advertisedCapabilities}, {"LSPP", "1.0"}};
             response.setResult(initResult);
             break;
       }

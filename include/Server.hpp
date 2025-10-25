@@ -1,7 +1,9 @@
+#pragma once
 #include <thread>
 #include "ProtocolStructures.hpp"
 #include "textDocument.hpp"
 #include "Message.hpp"
+#include "iostream"
 
 
 class LSPServer {
@@ -11,11 +13,14 @@ class LSPServer {
       ServerCapabilities m_capabilities;
       std::map<std::string, textDocument> m_openDocuments;
 
+      std::istream* m_input_stream;
+      std::ostream* m_output_stream;
+
       void updateDocumentBuffer(const DidChangeTextDocumentParams& params);
 public:
       LSPServer();
       ~LSPServer();
-      int init(const uint64_t& capabilities);
+      int init(const uint64_t& capabilities, std::istream& in = std::cin, std::ostream& out = std::cout);
       void stop();
       int exit();
       static void server_main(LSPServer* server);
