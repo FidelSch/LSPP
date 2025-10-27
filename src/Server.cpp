@@ -27,7 +27,7 @@ void LSPServer::updateDocumentBuffer(const DidChangeTextDocumentParams& params)
       }
 }
 
-LSPServer::LSPServer() : m_listener(), force_shutdown(false), m_input_stream(&std::cin), m_output_stream(&std::cout) {}
+LSPServer::LSPServer() : m_listener(), force_shutdown(false), isOKtoExit(false), m_shutdownRequested(false), m_initialized(false), m_input_stream(&std::cin), m_output_stream(&std::cout) {}
 
 LSPServer::~LSPServer()
 {
@@ -39,6 +39,8 @@ int LSPServer::init(const uint64_t& capabilities, std::istream& in, std::ostream
 {
       force_shutdown = false;
       isOKtoExit = false;
+      m_shutdownRequested = false;
+      m_initialized = false;
       m_capabilities.advertisedCapabilities = capabilities;
 
       m_input_stream = &in;
@@ -50,6 +52,7 @@ int LSPServer::init(const uint64_t& capabilities, std::istream& in, std::ostream
 
 void LSPServer::stop()
 {
+      // TODO: Graceful shutdown actions, interrupt ongoing tasks, etc.
       force_shutdown = true;
       return;
 }
@@ -69,7 +72,12 @@ void LSPServer::server_main(LSPServer* server)
 
       while (!server->force_shutdown)
       {
-            message.readMessage(*server->m_input_stream);
+            int readBytes = message.readMessage(*server->m_input_stream);
+            if (readBytes <= 0)
+            {
+                  // No point in processing invalid message
+                  continue;
+            }
             Message::log("INBOUND: " + message.get());
 
             if (!message.id().has_value()) // Notification
@@ -108,19 +116,47 @@ Response LSPServer::processRequest(const Message &message)
 {
       Response response(message);
 
+      // If not initialized yet, only allow 'initialize' and 'exit'
+      if (!m_initialized)
+      {
+            if (message.method() != Message::Method::INITIALIZE && message.method() != Message::Method::EXIT)
+            {
+                  response.setError({{"code", -32002}, {"message", "Server not initialized"}});
+                  Message::log("OUTBOUND: " + response.data.dump());
+                  return response;
+            }
+      }
+
+      // If shutdown was requested, only allow 'exit'. All other requests must error.
+      if (m_shutdownRequested)
+      {
+            if (message.method() != Message::Method::EXIT)
+            {
+                  response.setError({{"code", -32600}, {"message", "Server is shutting down"}});
+                  Message::log("OUTBOUND: " + response.data.dump());
+                  return response;
+            }
+      }
+
       switch (message.method())
       {
       case Message::Method::INITIALIZE:
       {
             InitializeResult initResult{{"utf-16", ServerCapabilities::TextDocumentSyncOptions::Incremental, m_capabilities.advertisedCapabilities}, {"LSPP", "1.0"}};
             response.setResult(initResult);
+            m_initialized = true;
             break;
       }
-      case Message::Method::EXIT:
-            isOKtoExit = true;
-            [[fallthrough]]; 
       case Message::Method::SHUTDOWN:
             response.setResult(nullptr);
+            // Mark shutdown but keep serving to allow 'exit' and to error any other requests
+            m_shutdownRequested = true;
+            break;
+      case Message::Method::EXIT:
+            // Exit is OK if shutdown was requested, or if server was never initialized
+            isOKtoExit = (m_shutdownRequested || !m_initialized);
+            response.setResult(nullptr);
+            // EXIT received: stop the server loop now
             stop();
             break; 
       case Message::Method::HOVER:
@@ -160,6 +196,10 @@ void LSPServer::processNotification(const Message &message)
 {
       switch (message.method())
       {
+      case Message::Method::EXIT:
+            // Exit is only OK after a prior shutdown request per LSP
+            isOKtoExit = m_shutdownRequested;
+            break;
       case Message::Method::TEXT_DOCUMENT_DID_OPEN:
       {
             m_openDocuments.emplace(message.documentURI(), message.params()["textDocument"]["text"]);

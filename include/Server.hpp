@@ -10,6 +10,8 @@ class LSPServer {
       std::thread m_listener;
       bool force_shutdown;
       bool isOKtoExit;
+      bool m_shutdownRequested;
+      bool m_initialized;
       ServerCapabilities m_capabilities;
       std::map<std::string, textDocument> m_openDocuments;
 
