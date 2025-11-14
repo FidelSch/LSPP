@@ -6,6 +6,18 @@
 #include "iostream"
 
 
+class DocumentHandler {
+      std::map<std::string, textDocument> m_openDocuments;
+public:
+      bool openDocument(const std::string& uri, const std::string& document);
+      bool closeDocument(const std::string& uri);
+      bool updateDocument(const std::string& uri, const DidChangeTextDocumentParams& params);
+      bool documentIsOpen(const std::string& uri) const;
+
+      // Returns a reference to the open document if it exists
+      std::optional<std::reference_wrapper<textDocument>> getOpenDocument(const std::string& uri);
+};
+
 class LSPServer {
       std::thread m_listener;
       bool force_shutdown;
@@ -13,12 +25,10 @@ class LSPServer {
       bool m_shutdownRequested;
       bool m_initialized;
       ServerCapabilities m_capabilities;
-      std::map<std::string, textDocument> m_openDocuments;
+      DocumentHandler m_documentHandler;
 
       std::istream* m_input_stream;
       std::ostream* m_output_stream;
-
-      void updateDocumentBuffer(const DidChangeTextDocumentParams& params);
 public:
       LSPServer();
       ~LSPServer();
@@ -29,13 +39,14 @@ public:
       bool hasCapability(uint64_t capability) const;
       Response processRequest(const Message& message);
       void processNotification(const Message& message);
+      void send(const Response& response, bool flush = false);
 
-      hoverResult hoverCallback(const hoverParams &params);
+      std::optional<hoverResult> hoverCallback(const hoverParams &params);
       definitionResult definitionCallback(const definitionParams &params);
       declarationResult declarationCallback(const declarationParams &params);
 };
 
 
-#define DEFAULT_HOVER_RESULT { {MarkupKind::PlainText, "some response for: " + m_openDocuments.at(params.textDocument.uri).wordUnderCursor(params.position.line, params.position.character)}, std::nullopt }
+#define DEFAULT_HOVER_RESULT { {MarkupKind::PlainText, "some response for: " + m_documentHandler.getOpenDocument(params.textDocument.uri).value().get().wordUnderCursor(params.position.line, params.position.character)}, std::nullopt }
 #define DEFAULT_DEFINITION_RESULT { params.textDocument.uri, {{0, 0}, params.position} }
 #define DEFAULT_DECLARATION_RESULT { params.textDocument.uri, {{0, 0}, params.position} }

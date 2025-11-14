@@ -6,27 +6,6 @@
 #include "ProtocolStructures.hpp"
 #include <map>
 
-void LSPServer::updateDocumentBuffer(const DidChangeTextDocumentParams& params)
-{
-      if (0 == m_openDocuments.count(params.textDocument.uri))
-            return;
-
-      textDocument& document = m_openDocuments.at(params.textDocument.uri);
-      for (auto &j : params.contentChanges)
-      {
-            if (j.range.has_value())
-            {
-                  const Range& contentChanged = j.range.value();
-
-                  int startIndex = document.findPos(contentChanged.start.line, contentChanged.start.character);
-                  int endIndex = document.findPos(contentChanged.end.line, contentChanged.end.character);
-
-                  document.m_content.replace(startIndex, endIndex - startIndex, j.text);
-            }
-            else document.m_content = j.text;
-      }
-}
-
 LSPServer::LSPServer() : m_listener(), force_shutdown(false), isOKtoExit(false), m_shutdownRequested(false), m_initialized(false), m_input_stream(&std::cin), m_output_stream(&std::cout) {}
 
 LSPServer::~LSPServer()
@@ -65,6 +44,14 @@ int LSPServer::exit()
       return isOKtoExit? 0: 1;
 }
 
+void LSPServer::send(const Response &response, bool flush)
+{
+      Message::log("OUTBOUND: " + response.data.dump());
+      (*m_output_stream) << response.toString();
+      if (flush)
+            m_output_stream->flush();
+}
+
 void LSPServer::server_main(LSPServer* server)
 {
       Message message;
@@ -80,6 +67,8 @@ void LSPServer::server_main(LSPServer* server)
             }
             Message::log("INBOUND: " + message.get());
 
+            auto now = std::chrono::steady_clock::now();
+
             if (!message.id().has_value()) // Notification
             {
                   server->processNotification(message);
@@ -87,14 +76,20 @@ void LSPServer::server_main(LSPServer* server)
             else // Request
             {
                   Response response = server->processRequest(message);
-                  (*server->m_output_stream) << response.toString();
+                  server->send(response);
             }
+
+            Message::log("Processed in " + std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - now).count()) + " ms");
       }
 }
 
-hoverResult LSPServer::hoverCallback(const hoverParams &params)
+std::optional<hoverResult> LSPServer::hoverCallback(const hoverParams &params)
 {
-      return DEFAULT_HOVER_RESULT;
+      if (m_documentHandler.documentIsOpen(params.textDocument.uri))
+      {
+            return std::make_optional<hoverResult>(DEFAULT_HOVER_RESULT);
+      }
+      return std::nullopt;
 }
 
 definitionResult LSPServer::definitionCallback(const definitionParams &params)
@@ -122,7 +117,6 @@ Response LSPServer::processRequest(const Message &message)
             if (message.method() != Message::Method::INITIALIZE && message.method() != Message::Method::EXIT)
             {
                   response.setError({{"code", -32002}, {"message", "Server not initialized"}});
-                  Message::log("OUTBOUND: " + response.data.dump());
                   return response;
             }
       }
@@ -133,7 +127,6 @@ Response LSPServer::processRequest(const Message &message)
             if (message.method() != Message::Method::EXIT)
             {
                   response.setError({{"code", -32600}, {"message", "Server is shutting down"}});
-                  Message::log("OUTBOUND: " + response.data.dump());
                   return response;
             }
       }
@@ -152,13 +145,6 @@ Response LSPServer::processRequest(const Message &message)
             // Mark shutdown but keep serving to allow 'exit' and to error any other requests
             m_shutdownRequested = true;
             break;
-      case Message::Method::EXIT:
-            // Exit is OK if shutdown was requested, or if server was never initialized
-            isOKtoExit = (m_shutdownRequested || !m_initialized);
-            response.setResult(nullptr);
-            // EXIT received: stop the server loop now
-            stop();
-            break; 
       case Message::Method::HOVER:
       {
             if (hasCapability(ServerCapabilities::hoverProvider))
@@ -188,7 +174,6 @@ Response LSPServer::processRequest(const Message &message)
             response.setError({{"code", -32601}, {"message", "Method not found"}});
       }
 
-      Message::log("OUTBOUND: " + response.data.dump());
       return response;
 }
 
@@ -197,25 +182,68 @@ void LSPServer::processNotification(const Message &message)
       switch (message.method())
       {
       case Message::Method::EXIT:
-            // Exit is only OK after a prior shutdown request per LSP
-            isOKtoExit = m_shutdownRequested;
-            break;
+            // Exit is OK if shutdown was requested, or if server was never initialized
+            isOKtoExit = (m_shutdownRequested || !m_initialized);
+            // EXIT received: stop the server loop now
+            stop();
+            break; 
       case Message::Method::TEXT_DOCUMENT_DID_OPEN:
       {
-            m_openDocuments.emplace(message.documentURI(), message.params()["textDocument"]["text"]);
+            m_documentHandler.openDocument(message.documentURI(), message.params()["textDocument"]["text"]);
             break;
       }
       case Message::Method::TEXT_DOCUMENT_DID_CHANGE:
       {
-            updateDocumentBuffer(message.params());
+            m_documentHandler.updateDocument(message.documentURI(), message.params());
             break;
       }
       case Message::Method::TEXT_DOCUMENT_DID_CLOSE:
       {
-            m_openDocuments.erase(message.documentURI());
+            m_documentHandler.closeDocument(message.documentURI());
             break;
       }
       default:
             break;
       }
+}
+
+
+bool DocumentHandler::updateDocument(const std::string& uri, const DidChangeTextDocumentParams& params) {
+
+      auto optionalDocument = getOpenDocument(uri);
+      if (!optionalDocument.has_value())
+            return false;
+
+      textDocument& document = optionalDocument.value();
+      for (auto &j : params.contentChanges)
+      {
+            if (j.range.has_value())
+            {
+                  const Range& contentChanged = j.range.value();
+
+                  int startIndex = document.findPos(contentChanged.start.line, contentChanged.start.character);
+                  int endIndex = document.findPos(contentChanged.end.line, contentChanged.end.character);
+
+                  document.m_content.replace(startIndex, endIndex - startIndex, j.text);
+            }
+            else document.m_content = j.text;
+      }
+
+      return true;
+}
+bool DocumentHandler::openDocument(const std::string& uri, const std::string& document) {
+      return m_openDocuments.emplace(uri, document).second;
+}
+bool DocumentHandler::closeDocument(const std::string& uri) {
+      return m_openDocuments.erase(uri) > 0;
+}
+bool DocumentHandler::documentIsOpen(const std::string& uri) const {
+      return m_openDocuments.count(uri) != 0;
+}
+std::optional<std::reference_wrapper<textDocument>> DocumentHandler::getOpenDocument(const std::string& uri) {
+      auto it = m_openDocuments.find(uri);
+      if (m_openDocuments.end() == it) {
+            return std::nullopt;
+      }
+      return std::make_optional<std::reference_wrapper<textDocument>>(it->second);
 }

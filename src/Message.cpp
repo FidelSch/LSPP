@@ -78,6 +78,9 @@ Message::Method Message::method() const
 	else if (methodStr == "textDocument/hover") return Message::Method::HOVER;
 	else if (methodStr == "textDocument/definition") return Message::Method::DEFINITION;
 	else if (methodStr == "textDocument/declaration") return Message::Method::DECLARATION;
+	else if (methodStr == "textDocument/didOpen") return Message::Method::TEXT_DOCUMENT_DID_OPEN;
+	else if (methodStr == "textDocument/didChange") return Message::Method::TEXT_DOCUMENT_DID_CHANGE;
+	else if (methodStr == "textDocument/didClose") return Message::Method::TEXT_DOCUMENT_DID_CLOSE;
 
 	return Message::Method::NONE; // Default case
 }
