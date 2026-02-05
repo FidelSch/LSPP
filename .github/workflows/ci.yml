@@ -75,7 +75,7 @@ jobs:
             wget https://apt.llvm.org/llvm.sh
             chmod +x llvm.sh
             sudo ./llvm.sh "$VERSION" || true
-            sudo apt-get install -y ${{ matrix.cxx }}
+            sudo apt-get install -y ${{ matrix.cxx }} clang-tools-${VERSION}
           fi
 
       - name: Install dependencies (macOS)
