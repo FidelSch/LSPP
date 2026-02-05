@@ -43,13 +43,13 @@ jobs:
             cc: clang-16
             cxx: clang++-16
 
-          # macOS with Apple Clang
-          - os: macos-13
+          - os: macos-14
             compiler: clang
             cc: clang
             cxx: clang++
 
-          - os: macos-14
+          # macOS with Apple Clang
+          - os: macos-15
             compiler: clang
             cc: clang
             cxx: clang++
