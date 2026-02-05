@@ -17,12 +17,10 @@ Message::~Message()
 	}
 }
 
-Message::Message(std::istream &buffer)
+Message::Message(std::istream &buffer) : m_buffer(nullptr), m_payloadSize(0)
 {
 	if (buffer.peek() == EOF)
 	{
-		m_buffer = nullptr;
-		m_payloadSize = 0;
 		return;
 	}
 	readMessage(buffer);
@@ -42,13 +40,17 @@ nlohmann::json Message::jsonData() const
 
 int Message::readMessage(std::istream &stream)
 {
+	// Free old buffer if exists (for message reuse)
+	if (m_buffer)
+	{
+		free(m_buffer);
+		m_buffer = nullptr;
+	}
 	m_payloadSize = 0;
 
 	// Check if stream is in good state before reading
 	if (!stream.good() || stream.eof())
 	{
-		m_buffer = nullptr;
-		m_payloadSize = 0;
 		return -1; // Signal EOF/error
 	}
 
@@ -58,8 +60,6 @@ int Message::readMessage(std::istream &stream)
 	// Check for EOF after ignore
 	if (stream.eof() || stream.fail())
 	{
-		m_buffer = nullptr;
-		m_payloadSize = 0;
 		return -1;
 	}
 
@@ -68,12 +68,15 @@ int Message::readMessage(std::istream &stream)
 	// Check for read failure or EOF
 	if (stream.fail() || stream.eof() || !(m_payloadSize > 0 && m_payloadSize < INT_MAX))
 	{
-		m_buffer = nullptr;
-		m_payloadSize = 0;
 		return -1;
 	}
 
 	m_buffer = static_cast<char *>(calloc(m_payloadSize + 2, 1));
+	if (!m_buffer)
+	{
+		m_payloadSize = 0;
+		return -1;
+	}
 
 	stream.clear();
 	stream.ignore(4);
