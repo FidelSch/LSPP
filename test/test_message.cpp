@@ -30,7 +30,8 @@ TEST(Message, constructors)
       ASSERT_STREQ("", m6.get().c_str());
 }
 
-TEST(Message, parsing) {
+TEST(Message, parsing)
+{
       std::ifstream example("../test/initExample.txt");
 
       ASSERT_TRUE(example.is_open());
@@ -43,7 +44,23 @@ TEST(Message, parsing) {
       ASSERT_EQ(1, m.id());
 }
 
-int main(){
+TEST(Message, parse_method)
+{
+      std::istringstream s("Content-Length: 48\r\n\r\n{\"jsonrpc\":\"2.0\",\"method\":\"textDocument/hover\",\"params\":{\"textDocument\":{\"uri\":\"file:///test.cpp\"},\"position\":{\"line\":10,\"character\":5}},\"id\":2}");
+      std::istringstream s2("Content-Length: 53\r\n\r\n{\"jsonrpc\":\"2.0\",\"method\":\"textDocument/definition\",\"params\":{\"textDocument\":{\"uri\":\"file:///test.cpp\"},\"position\":{\"line\":10,\"character\":5}},\"id\":2}");
+
+      Message m(s);
+      Message m2(s2);
+
+      ASSERT_STREQ("textDocument/hover", m.method_description().c_str());
+      ASSERT_EQ(Message::Method::HOVER, m.method());
+
+      ASSERT_STREQ("textDocument/definition", m2.method_description().c_str());
+      ASSERT_EQ(Message::Method::DEFINITION, m2.method());
+}
+
+int main()
+{
       ::testing::InitGoogleTest();
       return RUN_ALL_TESTS();
 }
