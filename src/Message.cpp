@@ -31,7 +31,12 @@ std::string Message::get() const
 {
 	if (!m_buffer)
 		return "";
-	return std::string(m_buffer);
+	try {
+		return std::string(m_buffer);
+	} catch (const std::bad_alloc&) {
+		// Return empty string on allocation failure
+		return "";
+	}
 }
 
 nlohmann::json Message::jsonData() const
@@ -238,7 +243,11 @@ void Message::log(const std::string_view &s)
 	{
 		return;
 	}
-	std::ofstream file(logfile, std::ios::app);
-	file << std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()) << ">>" << s << '\n';
-	file.close();
+	try {
+		std::ofstream file(logfile, std::ios::app);
+		file << std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()) << ">>" << s << '\n';
+		file.close();
+	} catch (...) {
+		// Silently fail - logging is non-critical
+	}
 }
