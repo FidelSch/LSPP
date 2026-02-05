@@ -62,12 +62,14 @@ void LSPServer::server_main(LSPServer *server)
       while (!server->force_shutdown.load())
       {
             int readBytes = message.readMessage(*server->m_input_stream);
-            if (readBytes <= 0)
+            if (readBytes < 0)
             {
-                  // Check again if shutdown was requested to avoid tight loop
-                  if (server->force_shutdown.load())
-                        break;
-                  // No point in processing invalid message
+                  // EOF or stream error - exit gracefully
+                  break;
+            }
+            if (readBytes == 0)
+            {
+                  // Invalid message, but stream is still OK - continue
                   continue;
             }
             Message::log("INBOUND: " + message.get());
@@ -86,8 +88,6 @@ void LSPServer::server_main(LSPServer *server)
 
             Message::log("Processed in " + std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - now).count()) + " ms");
       }
-      // Give a small delay to ensure any pending I/O operations complete
-      std::this_thread::sleep_for(std::chrono::milliseconds(10));
 }
 
 std::optional<hoverResult> LSPServer::hoverCallback(const hoverParams &params)

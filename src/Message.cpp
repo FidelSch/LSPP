@@ -44,16 +44,33 @@ int Message::readMessage(std::istream &stream)
 {
 	m_payloadSize = 0;
 
-	stream.clear();
-	stream.ignore(15);
-	stream >> m_payloadSize;
-
-	// TODO: handle this cleanly
-	if (!(m_payloadSize > 0 && m_payloadSize < INT_MAX))
+	// Check if stream is in good state before reading
+	if (!stream.good() || stream.eof())
 	{
 		m_buffer = nullptr;
 		m_payloadSize = 0;
-		return 0;
+		return -1; // Signal EOF/error
+	}
+
+	stream.clear();
+	stream.ignore(15);
+
+	// Check for EOF after ignore
+	if (stream.eof() || stream.fail())
+	{
+		m_buffer = nullptr;
+		m_payloadSize = 0;
+		return -1;
+	}
+
+	stream >> m_payloadSize;
+
+	// Check for read failure or EOF
+	if (stream.fail() || stream.eof() || !(m_payloadSize > 0 && m_payloadSize < INT_MAX))
+	{
+		m_buffer = nullptr;
+		m_payloadSize = 0;
+		return -1;
 	}
 
 	m_buffer = static_cast<char *>(calloc(m_payloadSize + 2, 1));
@@ -63,6 +80,15 @@ int Message::readMessage(std::istream &stream)
 
 	stream.clear();
 	stream.read(m_buffer, m_payloadSize);
+
+	// Check if read was successful
+	if (stream.fail() && !stream.eof())
+	{
+		free(m_buffer);
+		m_buffer = nullptr;
+		m_payloadSize = 0;
+		return -1;
+	}
 
 	m_jsonData = nlohmann::json::parse(m_buffer, nullptr, false);
 
