@@ -62,14 +62,8 @@ void LSPServer::server_main(LSPServer *server)
       while (!server->force_shutdown.load())
       {
             int readBytes = message.readMessage(*server->m_input_stream);
-            if (readBytes < 0)
+            if (readBytes <= 0)
             {
-                  // EOF or stream error - exit gracefully
-                  break;
-            }
-            if (readBytes == 0)
-            {
-                  // Invalid message, but stream is still OK - continue
                   continue;
             }
             Message::log("INBOUND: " + message.get());
