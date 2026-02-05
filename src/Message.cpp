@@ -3,11 +3,12 @@
 #include <iostream>
 #include <string>
 #include <climits>
+#include <cstddef>
 #include <cassert>
 #include <fstream>
 #include <optional>
 
-Message::Message() : m_buffer(nullptr), m_payloadSize(0) {}
+Message::Message() : m_buffer(nullptr), m_payloadSize(0), m_jsonData(nlohmann::json::value_t::null) {}
 
 Message::~Message()
 {
@@ -17,7 +18,7 @@ Message::~Message()
 	}
 }
 
-Message::Message(std::istream &buffer) : m_buffer(nullptr), m_payloadSize(0)
+Message::Message(std::istream &buffer) : m_buffer(nullptr), m_payloadSize(0), m_jsonData(nlohmann::json::value_t::null)
 {
 	if (buffer.peek() == EOF)
 	{
@@ -30,7 +31,15 @@ std::string Message::get() const
 {
 	if (!m_buffer)
 		return "";
-	return std::string(m_buffer);
+	try
+	{
+		return std::string(m_buffer);
+	}
+	catch (const std::bad_alloc &)
+	{
+		// Return empty string on allocation failure
+		return "";
+	}
 }
 
 nlohmann::json Message::jsonData() const
@@ -63,16 +72,25 @@ int Message::readMessage(std::istream &stream)
 		return -1;
 	}
 
-	stream >> m_payloadSize;
+	// Clear any lingering error flags before critical read
+	stream.clear();
+
+	// Initialize to sentinel value to detect read failures
+	size_t temp_size = SIZE_MAX;
+	stream >> temp_size;
 
 	// Check for read failure or EOF
 	// Use reasonable upper limit (10MB) to prevent bad_alloc from malformed/malicious data
 	constexpr size_t MAX_MESSAGE_SIZE = 10 * 1024 * 1024; // 10 MB
-	if (stream.fail() || stream.eof() || m_payloadSize == 0 || m_payloadSize > MAX_MESSAGE_SIZE)
+	if (stream.fail() || stream.eof() || temp_size == SIZE_MAX || temp_size == 0 || temp_size > MAX_MESSAGE_SIZE)
 	{
+		stream.clear(); // Clear error state for potential reuse
 		return -1;
 	}
 
+	m_payloadSize = temp_size;
+
+	// Protect against calloc failure with explicit check
 	m_buffer = static_cast<char *>(calloc(m_payloadSize + 2, 1));
 	if (!m_buffer)
 	{
@@ -95,7 +113,26 @@ int Message::readMessage(std::istream &stream)
 		return -1;
 	}
 
-	m_jsonData = nlohmann::json::parse(m_buffer, nullptr, false);
+	// Parse JSON with exception handling
+	// Use non-throwing parse (third parameter = false) which returns discarded JSON on error
+	// But still protect against bad_alloc which can be thrown during parsing
+	try
+	{
+		m_jsonData = nlohmann::json::parse(m_buffer, nullptr, false);
+	}
+	catch (const std::bad_alloc &)
+	{
+		// Memory allocation failed during parsing - free resources
+		free(m_buffer);
+		m_buffer = nullptr;
+		m_payloadSize = 0;
+		return -1;
+	}
+	catch (...)
+	{
+		// Unexpected exception during parsing - m_jsonData stays as null (initialized in constructor)
+		// Keep buffer for debugging, but return success since we have the raw data
+	}
 
 	return m_payloadSize;
 }
@@ -207,7 +244,14 @@ void Message::log(const std::string_view &s)
 	{
 		return;
 	}
-	std::ofstream file(logfile, std::ios::app);
-	file << std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()) << ">>" << s << '\n';
-	file.close();
+	try
+	{
+		std::ofstream file(logfile, std::ios::app);
+		file << std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()) << ">>" << s << '\n';
+		file.close();
+	}
+	catch (...)
+	{
+		// Silently fail - logging is non-critical
+	}
 }
