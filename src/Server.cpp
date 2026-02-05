@@ -48,28 +48,37 @@ int LSPServer::exit()
 
 void LSPServer::send(const Response &response, bool flush)
 {
-      try {
+      try
+      {
             std::string output = response.toString();
             // Extract JSON body from wire format for logging
             auto bodyStart = output.find("\r\n\r\n");
-            if (bodyStart != std::string::npos) {
+            if (bodyStart != std::string::npos)
+            {
                   Message::log("OUTBOUND: " + output.substr(bodyStart + 4));
             }
             (*m_output_stream) << output;
             if (flush)
                   m_output_stream->flush();
-      } catch (const std::bad_alloc&) {
+      }
+      catch (const std::bad_alloc &)
+      {
             // Output minimal response on allocation failure
             (*m_output_stream) << "Content-Length: 2\r\n\r\n{}";
             if (flush)
                   m_output_stream->flush();
-      } catch (...) {
+      }
+      catch (...)
+      {
             // Other exceptions - try minimal response
-            try {
+            try
+            {
                   (*m_output_stream) << "Content-Length: 2\r\n\r\n{}";
                   if (flush)
                         m_output_stream->flush();
-            } catch (...) {
+            }
+            catch (...)
+            {
                   // Give up
             }
       }
@@ -93,9 +102,12 @@ void LSPServer::server_main(LSPServer *server)
                   // Invalid message, but stream is still OK - continue
                   continue;
             }
-            try {
+            try
+            {
                   Message::log("INBOUND: " + message.get());
-            } catch (...) {
+            }
+            catch (...)
+            {
                   // Log failure is non-critical
             }
 
@@ -111,9 +123,12 @@ void LSPServer::server_main(LSPServer *server)
                   server->send(response);
             }
 
-            try {
+            try
+            {
                   Message::log("Processed in " + std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - now).count()) + " ms");
-            } catch (...) {
+            }
+            catch (...)
+            {
                   // Log failure is non-critical
             }
       }

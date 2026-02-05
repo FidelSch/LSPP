@@ -8,7 +8,7 @@
 #include <fstream>
 #include <optional>
 
-Message::Message() : m_buffer(nullptr), m_payloadSize(0) {}
+Message::Message() : m_buffer(nullptr), m_payloadSize(0), m_jsonData(nlohmann::json::value_t::null) {}
 
 Message::~Message()
 {
@@ -18,7 +18,7 @@ Message::~Message()
 	}
 }
 
-Message::Message(std::istream &buffer) : m_buffer(nullptr), m_payloadSize(0)
+Message::Message(std::istream &buffer) : m_buffer(nullptr), m_payloadSize(0), m_jsonData(nlohmann::json::value_t::null)
 {
 	if (buffer.peek() == EOF)
 	{
@@ -31,9 +31,12 @@ std::string Message::get() const
 {
 	if (!m_buffer)
 		return "";
-	try {
+	try
+	{
 		return std::string(m_buffer);
-	} catch (const std::bad_alloc&) {
+	}
+	catch (const std::bad_alloc &)
+	{
 		// Return empty string on allocation failure
 		return "";
 	}
@@ -127,9 +130,7 @@ int Message::readMessage(std::istream &stream)
 	}
 	catch (...)
 	{
-		// Unexpected exception during parsing - ensure JSON is in discarded state
-		m_jsonData = nlohmann::json();
-		m_jsonData = nlohmann::json::value_t::discarded;
+		// Unexpected exception during parsing - m_jsonData stays as null (initialized in constructor)
 		// Keep buffer for debugging, but return success since we have the raw data
 	}
 
@@ -243,11 +244,14 @@ void Message::log(const std::string_view &s)
 	{
 		return;
 	}
-	try {
+	try
+	{
 		std::ofstream file(logfile, std::ios::app);
 		file << std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()) << ">>" << s << '\n';
 		file.close();
-	} catch (...) {
+	}
+	catch (...)
+	{
 		// Silently fail - logging is non-critical
 	}
 }
