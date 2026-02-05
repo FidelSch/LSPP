@@ -66,7 +66,9 @@ int Message::readMessage(std::istream &stream)
 	stream >> m_payloadSize;
 
 	// Check for read failure or EOF
-	if (stream.fail() || stream.eof() || !(m_payloadSize > 0 && m_payloadSize < INT_MAX))
+	// Use reasonable upper limit (10MB) to prevent bad_alloc from malformed/malicious data
+	constexpr size_t MAX_MESSAGE_SIZE = 10 * 1024 * 1024; // 10 MB
+	if (stream.fail() || stream.eof() || m_payloadSize == 0 || m_payloadSize > MAX_MESSAGE_SIZE)
 	{
 		return -1;
 	}
