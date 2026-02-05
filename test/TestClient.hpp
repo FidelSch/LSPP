@@ -49,6 +49,8 @@ namespace testutil
                   size_t lenEnd = header.find('\r', lenStart);
                   if (lenEnd == std::string::npos)
                         lenEnd = header.size();
+                  if (lenEnd <= lenStart)
+                        break;
 
                   size_t expected = static_cast<size_t>(std::stoul(std::string(header.substr(lenStart, lenEnd - lenStart))));
                   size_t bodyStart = headerEnd + 4;
