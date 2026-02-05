@@ -27,9 +27,9 @@ namespace testutil
             int serverExitCode{0};
       };
 
-      inline std::vector<nlohmann::json> parseAllResponses(const std::string& wire)
+      inline std::vector<nlohmann::json> parseAllResponses(const std::string &wire)
       {
-            static constexpr size_t content_length_header_size = std::string("Content-Length: ").size();
+            static constexpr size_t content_length_header_size = 16; // "Content-Length: ".size()
             std::vector<nlohmann::json> out;
             if (wire.empty())
                   return out;
@@ -37,19 +37,25 @@ namespace testutil
             while (true)
             {
                   auto headerEnd = wire.find("\r\n\r\n", pos);
-                  if (headerEnd == std::string::npos) break;
+                  if (headerEnd == std::string::npos)
+                        break;
 
                   std::string_view header = std::string_view(wire).substr(pos, headerEnd - pos);
                   auto lenPos = header.find("Content-Length: ");
-                  if (lenPos == std::string::npos) break;
+                  if (lenPos == std::string::npos)
+                        break;
 
                   size_t lenStart = lenPos + content_length_header_size;
                   size_t lenEnd = header.find('\r', lenStart);
-                  if (lenEnd == std::string::npos) lenEnd = header.size();
+                  if (lenEnd == std::string::npos)
+                        lenEnd = header.size();
+                  if (lenEnd <= lenStart)
+                        break;
 
                   size_t expected = static_cast<size_t>(std::stoul(std::string(header.substr(lenStart, lenEnd - lenStart))));
                   size_t bodyStart = headerEnd + 4;
-                  if (wire.size() < bodyStart + expected) break;
+                  if (wire.size() < bodyStart + expected)
+                        break;
                   out.emplace_back(nlohmann::json::parse(wire.substr(bodyStart, expected)));
                   pos = bodyStart + expected;
             }
@@ -126,7 +132,8 @@ namespace testutil
             return resp;
       }
 
-      struct BatchResponse {
+      struct BatchResponse
+      {
             std::vector<nlohmann::json> jsonResponses;
             int serverExitCode{0};
       };
@@ -164,7 +171,7 @@ namespace testutil
                   }
                   if (expected_responses > 0 && responses.size() >= expected_responses)
                         break;
-                  
+
                   // std::this_thread::sleep_for(std::chrono::milliseconds(1));
             }
 

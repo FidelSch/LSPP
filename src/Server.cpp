@@ -14,9 +14,9 @@ LSPServer::~LSPServer()
       exit();
 }
 
-int LSPServer::init(const uint64_t& capabilities, std::istream& in, std::ostream& out)
+int LSPServer::init(const uint64_t &capabilities, std::istream &in, std::ostream &out)
 {
-      force_shutdown = false;
+      force_shutdown.store(false);
       isOKtoExit = false;
       m_shutdownRequested = false;
       m_initialized = false;
@@ -32,16 +32,18 @@ int LSPServer::init(const uint64_t& capabilities, std::istream& in, std::ostream
 void LSPServer::stop()
 {
       // TODO: Graceful shutdown actions, interrupt ongoing tasks, etc.
-      force_shutdown = true;
+      force_shutdown.store(true);
       return;
 }
 
 int LSPServer::exit()
 {
       if (m_listener.joinable())
+      {
             // Wait for listener thread to finish
             m_listener.join();
-      return isOKtoExit? 0: 1;
+      }
+      return isOKtoExit ? 0 : 1;
 }
 
 void LSPServer::send(const Response &response, bool flush)
@@ -52,17 +54,22 @@ void LSPServer::send(const Response &response, bool flush)
             m_output_stream->flush();
 }
 
-void LSPServer::server_main(LSPServer* server)
+void LSPServer::server_main(LSPServer *server)
 {
       Message message;
       textDocument document;
 
-      while (!server->force_shutdown)
+      while (!server->force_shutdown.load())
       {
             int readBytes = message.readMessage(*server->m_input_stream);
-            if (readBytes <= 0)
+            if (readBytes < 0)
             {
-                  // No point in processing invalid message
+                  // EOF or stream error - exit gracefully
+                  break;
+            }
+            if (readBytes == 0)
+            {
+                  // Invalid message, but stream is still OK - continue
                   continue;
             }
             Message::log("INBOUND: " + message.get());
@@ -97,7 +104,7 @@ definitionResult LSPServer::definitionCallback(const definitionParams &params)
       return DEFAULT_DEFINITION_RESULT;
 }
 
-declarationResult LSPServer::declarationCallback(const declarationParams & params)
+declarationResult LSPServer::declarationCallback(const declarationParams &params)
 {
       return DEFAULT_DECLARATION_RESULT;
 }
@@ -186,7 +193,7 @@ void LSPServer::processNotification(const Message &message)
             isOKtoExit = (m_shutdownRequested || !m_initialized);
             // EXIT received: stop the server loop now
             stop();
-            break; 
+            break;
       case Message::Method::TEXT_DOCUMENT_DID_OPEN:
       {
             m_documentHandler.openDocument(message.documentURI(), message.params()["textDocument"]["text"]);
@@ -207,42 +214,48 @@ void LSPServer::processNotification(const Message &message)
       }
 }
 
-
-bool DocumentHandler::updateDocument(const std::string& uri, const DidChangeTextDocumentParams& params) {
+bool DocumentHandler::updateDocument(const std::string &uri, const DidChangeTextDocumentParams &params)
+{
 
       auto optionalDocument = getOpenDocument(uri);
       if (!optionalDocument.has_value())
             return false;
 
-      textDocument& document = optionalDocument.value();
+      textDocument &document = optionalDocument.value();
       for (auto &j : params.contentChanges)
       {
             if (j.range.has_value())
             {
-                  const Range& contentChanged = j.range.value();
+                  const Range &contentChanged = j.range.value();
 
                   int startIndex = document.findPos(contentChanged.start.line, contentChanged.start.character);
                   int endIndex = document.findPos(contentChanged.end.line, contentChanged.end.character);
 
                   document.m_content.replace(startIndex, endIndex - startIndex, j.text);
             }
-            else document.m_content = j.text;
+            else
+                  document.m_content = j.text;
       }
 
       return true;
 }
-bool DocumentHandler::openDocument(const std::string& uri, const std::string& document) {
+bool DocumentHandler::openDocument(const std::string &uri, const std::string &document)
+{
       return m_openDocuments.emplace(uri, document).second;
 }
-bool DocumentHandler::closeDocument(const std::string& uri) {
+bool DocumentHandler::closeDocument(const std::string &uri)
+{
       return m_openDocuments.erase(uri) > 0;
 }
-bool DocumentHandler::documentIsOpen(const std::string& uri) const {
+bool DocumentHandler::documentIsOpen(const std::string &uri) const
+{
       return m_openDocuments.count(uri) != 0;
 }
-std::optional<std::reference_wrapper<textDocument>> DocumentHandler::getOpenDocument(const std::string& uri) {
+std::optional<std::reference_wrapper<textDocument>> DocumentHandler::getOpenDocument(const std::string &uri)
+{
       auto it = m_openDocuments.find(uri);
-      if (m_openDocuments.end() == it) {
+      if (m_openDocuments.end() == it)
+      {
             return std::nullopt;
       }
       return std::make_optional<std::reference_wrapper<textDocument>>(it->second);
