@@ -105,7 +105,28 @@ int Message::readMessage(std::istream &stream)
 		return -1;
 	}
 
-	m_jsonData = nlohmann::json::parse(m_buffer, nullptr, false);
+	// Parse JSON with exception handling
+	// Use non-throwing parse (third parameter = false) which returns discarded JSON on error
+	// But still protect against bad_alloc which can be thrown during parsing
+	try
+	{
+		m_jsonData = nlohmann::json::parse(m_buffer, nullptr, false);
+	}
+	catch (const std::bad_alloc &)
+	{
+		// Memory allocation failed during parsing - free resources
+		free(m_buffer);
+		m_buffer = nullptr;
+		m_payloadSize = 0;
+		return -1;
+	}
+	catch (...)
+	{
+		// Unexpected exception during parsing - ensure JSON is in discarded state
+		m_jsonData = nlohmann::json();
+		m_jsonData = nlohmann::json::value_t::discarded;
+		// Keep buffer for debugging, but return success since we have the raw data
+	}
 
 	return m_payloadSize;
 }
