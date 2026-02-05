@@ -109,6 +109,26 @@ public:
 
 	std::string toString() const
 	{
-		return "Content-Length: " + std::to_string(data.dump().length()) + "\r\n\r\n" + data.dump();
+		try
+		{
+			// Dump JSON once and reuse
+			std::string json_str = data.dump();
+
+			// Pre-allocate to avoid multiple reallocations during concatenation
+			std::string result;
+			result.reserve(json_str.length() + 50); // Header + CRLF + safety margin
+
+			result = "Content-Length: ";
+			result += std::to_string(json_str.length());
+			result += "\r\n\r\n";
+			result += json_str;
+
+			return result;
+		}
+		catch (const std::bad_alloc &)
+		{
+			// Return minimal valid response on allocation failure
+			return "Content-Length: 2\r\n\r\n{}";
+		}
 	}
 };

@@ -3,6 +3,7 @@
 #include <iostream>
 #include <string>
 #include <climits>
+#include <cstddef>
 #include <cassert>
 #include <fstream>
 #include <optional>
@@ -63,16 +64,25 @@ int Message::readMessage(std::istream &stream)
 		return -1;
 	}
 
-	stream >> m_payloadSize;
+	// Clear any lingering error flags before critical read
+	stream.clear();
+
+	// Initialize to sentinel value to detect read failures
+	size_t temp_size = SIZE_MAX;
+	stream >> temp_size;
 
 	// Check for read failure or EOF
 	// Use reasonable upper limit (10MB) to prevent bad_alloc from malformed/malicious data
 	constexpr size_t MAX_MESSAGE_SIZE = 10 * 1024 * 1024; // 10 MB
-	if (stream.fail() || stream.eof() || m_payloadSize == 0 || m_payloadSize > MAX_MESSAGE_SIZE)
+	if (stream.fail() || stream.eof() || temp_size == SIZE_MAX || temp_size == 0 || temp_size > MAX_MESSAGE_SIZE)
 	{
+		stream.clear(); // Clear error state for potential reuse
 		return -1;
 	}
 
+	m_payloadSize = temp_size;
+
+	// Protect against calloc failure with explicit check
 	m_buffer = static_cast<char *>(calloc(m_payloadSize + 2, 1));
 	if (!m_buffer)
 	{
@@ -95,7 +105,27 @@ int Message::readMessage(std::istream &stream)
 		return -1;
 	}
 
-	m_jsonData = nlohmann::json::parse(m_buffer, nullptr, false);
+	// Parse JSON with exception handling to catch bad_alloc
+	// Note: We don't fail on malformed JSON - we keep the buffer for debugging
+	try
+	{
+		m_jsonData = nlohmann::json::parse(m_buffer, nullptr, false);
+		// m_jsonData.is_discarded() indicates parse failure, but we don't treat it as fatal
+		// The buffer is still valid and can be accessed via get()
+	}
+	catch (const std::bad_alloc &)
+	{
+		// Memory allocation failed during parsing - this is fatal
+		free(m_buffer);
+		m_buffer = nullptr;
+		m_payloadSize = 0;
+		return -1;
+	}
+	catch (...)
+	{
+		// Other parsing errors - keep buffer but mark JSON as discarded
+		// This maintains backward compatibility with tests that expect partial data
+	}
 
 	return m_payloadSize;
 }
