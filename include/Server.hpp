@@ -28,10 +28,12 @@ class LSPServer
       bool m_shutdownRequested;
       bool m_initialized;
       ServerCapabilities m_capabilities;
-      DocumentHandler m_documentHandler;
 
       std::istream *m_input_stream;
       std::ostream *m_output_stream;
+
+protected:
+      DocumentHandler m_documentHandler;
 
 public:
       LSPServer();
@@ -45,9 +47,9 @@ public:
       void processNotification(const Message &message);
       void send(const Response &response, bool flush = false);
 
-      std::optional<hoverResult> hoverCallback(const hoverParams &params);
-      definitionResult definitionCallback(const definitionParams &params);
-      declarationResult declarationCallback(const declarationParams &params);
+      virtual std::optional<hoverResult> hoverCallback(const hoverParams &params);
+      virtual definitionResult definitionCallback(const definitionParams &params);
+      virtual declarationResult declarationCallback(const declarationParams &params);
 };
 
 #define DEFAULT_HOVER_RESULT {{MarkupKind::PlainText, "some response for: " + m_documentHandler.getOpenDocument(params.textDocument.uri).value().get().wordUnderCursor(params.position.line, params.position.character)}, std::nullopt}

@@ -1,11 +1,27 @@
 #include "Server.hpp"
 
-int main() {
+class MyServer : public LSPServer
+{
+public:
+	std::optional<hoverResult> hoverCallback(const hoverParams &params) override
+	{
+		auto docOpt = m_documentHandler.getOpenDocument(params.textDocument.uri);
+		if (!docOpt)
+		{
+			return std::nullopt;
+		}
+		std::string word = docOpt->get().wordUnderCursor(params.position.line, params.position.character);
 
-	LSPServer server;
+		return hoverResult{{MarkupKind::PlainText, "This is my custom response for: " + word}, std::nullopt};
+	}
+};
 
-	server.init(ServerCapabilities::hoverProvider | ServerCapabilities::definitionProvider);
-	// server.stop();
+int main()
+{
+
+	MyServer server;
+
+	server.init(ServerCapabilities::hoverProvider);
 
 	return server.exit();
 }
