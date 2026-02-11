@@ -1,23 +1,25 @@
-# LSP - Language Server Protocol Implementation
+# LSPP - Language Server Protocol Library
 
 <!-- [![CI](https://github.com/FidelSch/LSP/actions/workflows/ci.yml/badge.svg)](https://github.com/FidelSch/LSP/actions/workflows/ci.yml) -->
 
-A C++23 implementation of a Language Server Protocol server with modern C++ features including modules support.
+A C++23 library for building Language Server Protocol (LSP) servers. LSPP provides a clean API for implementing custom language servers with minimal boilerplate.
 
 ## Features
 
-- 🚀 Modern C++23 with modules (`-fmodules-ts`)
-- 📦 Shared library (`libLSPP`) and standalone executable
+- 🚀 Modern C++23 API with type safety
+- 📦 Shared library (`libLSPP.so`) for easy integration
+- 🎯 Simple callback-based architecture - override what you need
+- 🔄 Automatic JSON-RPC message handling
+- 📝 Built-in text document synchronization
 - 🧪 Comprehensive test suite using GoogleTest
-- 🔄 JSON message parsing with nlohmann/json
-- 📝 Text document synchronization and management
-- 🏗️ CMake-based build system with Ninja support
+- 🏗️ CMake-based build system with installation support
+- 📚 Example implementations included
 
 ## Requirements
 
 - **CMake:** 3.30 or higher
 - **Compiler:**
-  - GCC 11+ or Clang 15+ (C++23 with modules support)
+  - GCC 11+ or Clang 15+ (C++23 support)
   - Currently tested with GCC using `-std=gnu++23`
 - **Build Tools:** Ninja (recommended) or Make
 - **Dependencies:** Vendored as git submodules
@@ -49,10 +51,50 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -G Ninja
 cmake --build build
 
 # The outputs will be in build/:
-# - build/main           (LSP server executable)
-# - build/libLSPP.so.*   (shared library)
-# - build/test_*         (test executables)
+# - build/libLSPP.so.*            (shared library)
+# - build/simple_hover_server     (example LSP server)
+# - build/test_*                  (test executables)
 ```
+
+## Quick Start
+
+Here's a minimal LSP server that provides hover functionality:
+
+```cpp
+#include "Server.hpp"
+
+class MyServer : public LSPServer {
+public:
+    std::optional<hoverResult> hoverCallback(const hoverParams &params) override {
+        auto docOpt = m_documentHandler.getOpenDocument(params.textDocument.uri);
+        if (!docOpt) return std::nullopt;
+
+        std::string word = docOpt->get().wordUnderCursor(
+            params.position.line,
+            params.position.character
+        );
+
+        return hoverResult{
+            {MarkupKind::PlainText, "Hover info for: " + word},
+            std::nullopt
+        };
+    }
+};
+
+int main() {
+    MyServer server;
+    server.init(ServerCapabilities::hoverProvider);
+    return server.exit();
+}
+```
+
+Build and link against `libLSPP`:
+
+```bash
+g++ -std=c++23 my_server.cpp -o my_server -lLSPP
+```
+
+See [examples/](examples/) for more complete examples.
 
 ## Testing
 
@@ -80,33 +122,109 @@ cmake --install build --prefix /usr/local
 
 This installs:
 
-- Libraries → `/usr/local/lib/`
+- Shared library → `/usr/local/lib/libLSPP.so`
 - Headers → `/usr/local/include/`
-- CMake configs → `/usr/local/lib/cmake/LSPP/`
-- pkg-config file → `/usr/local/share/pkgconfig/`
+- CMake config → `/usr/local/lib/cmake/LSPP/`
+
+### Using LSPP in Your Project
+
+With CMake:
+
+```cmake
+find_package(LSPP REQUIRED)
+target_link_libraries(your_target PRIVATE LSPP::LSPP)
+```
 
 ## Project Structure
 
 ```
 LSP/
-├── src/                    # Source files
-│   ├── Message.cpp
+├── include/                # Public API headers
+│   ├── Server.hpp              # Main LSPServer class
+│   ├── Message.hpp             # LSP message handling
+│   ├── ProtocolStructures.hpp  # LSP types and structures
+│   └── textDocument.hpp        # Document management
+├── src/                    # Library implementation
 │   ├── Server.cpp
+│   ├── Message.cpp
 │   ├── ProtocolStructures.cpp
-│   ├── textDocument.cpp
-│   └── main.cpp
-├── include/                # Public headers
-│   ├── Message.hpp
-│   ├── Server.hpp
-│   ├── ProtocolStructures.hpp
-│   └── textDocument.hpp
+│   └── textDocument.cpp
+├── examples/               # Example implementations
+│   ├── simple_hover_server.cpp # Basic hover provider
+│   └── README.md               # Examples documentation
 ├── test/                   # Test suite
-│   ├── test_message.cpp
 │   ├── test_server.cpp
+│   ├── test_message.cpp
 │   ├── test_json.cpp
 │   └── test_textDocument.cpp
 ├── deps/                   # Git submodules
 │   ├── googletest/
 │   └── json/
-└── build/                  # Build output (generated)
+└── CMakeLists.txt          # Build configuration
 ```
+
+## API Overview
+
+LSPP uses a callback-based architecture. Inherit from `LSPServer` and override the methods you need:
+
+### Available Callbacks
+
+- `hoverCallback(hoverParams)` - Provide hover information
+- `definitionCallback(definitionParams)` - Go to definition
+- More capabilities coming soon...
+
+### Document Management
+
+Access opened documents via `m_documentHandler`:
+
+```cpp
+auto docOpt = m_documentHandler.getOpenDocument(uri);
+if (docOpt) {
+    const TextDocument& doc = docOpt->get();
+    std::string word = doc.wordUnderCursor(line, character);
+    std::string content = doc.getContent();
+}
+```
+
+## Using with Editors
+
+### Neovim
+
+```lua
+vim.lsp.config['LSPP'] = {
+  cmd = { '/path/to/your/lsp/server' },
+  filetypes = { 'your_language' },
+  root_markers = { '.git' },
+}
+vim.lsp.enable 'LSPP'
+```
+
+### VS Code
+
+Add to your extension's `package.json`:
+
+```json
+{
+  "contributes": {
+    "languages": [
+      {
+        "id": "your_language",
+        "extensions": [".ext"]
+      }
+    ],
+    "configuration": {
+      "title": "Your LSP",
+      "properties": {
+        "yourLSP.serverPath": {
+          "type": "string",
+          "default": "/path/to/server"
+        }
+      }
+    }
+  }
+}
+```
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
