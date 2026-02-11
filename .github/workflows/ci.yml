@@ -121,13 +121,16 @@ jobs:
           echo "Tests failed after 3 attempts"
           exit 1
 
+      - name: Test install
+        run: cmake --install build --prefix install
+
       - name: Upload build artifacts
         if: success()
         uses: actions/upload-artifact@v4
         with:
           name: build-artifacts-${{ matrix.os }}-${{ matrix.compiler }}
           path: |
-            build/main
+            build/simple_hover_server
             build/libLSPP.so*
             build/*.so.*
           retention-days: 7
