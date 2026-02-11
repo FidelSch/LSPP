@@ -14,14 +14,6 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS true)
 
 # set(LSPP_INSTALL_DIR "~/LSP_install")
 
-add_executable(main src/main.cpp src/Message.cpp src/Server.cpp src/ProtocolStructures.cpp src/textDocument.cpp)
-target_include_directories(main
-    PRIVATE
-    include/
-    deps/json/include/
-)
-target_compile_options(main PRIVATE -Wall -Wextra -Wpedantic)
-
 add_library(LSPP SHARED
     src/Message.cpp
     src/Server.cpp
@@ -100,3 +92,8 @@ add_executable(test_textDocument test/test_textDocument.cpp src/textDocument.cpp
 target_include_directories(test_textDocument PRIVATE include/ deps/json/include/)
 target_link_libraries(test_textDocument gtest gtest_main)
 add_test(NAME test_textDocument COMMAND test_textDocument)
+
+# Examples
+add_executable(simple_hover_server examples/simple_hover_server.cpp)
+target_link_libraries(simple_hover_server LSPP)
+target_compile_options(simple_hover_server PRIVATE -Wall -Wextra -Wpedantic)
