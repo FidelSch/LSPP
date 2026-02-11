@@ -5,6 +5,10 @@ project(lsp VERSION 0.1.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Prevent test dependencies from installing
+set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
+set(JSON_Install OFF CACHE BOOL "" FORCE)
+
 add_subdirectory(deps/googletest)
 enable_testing()
 

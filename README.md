@@ -117,7 +117,7 @@ Or run individual test suites:
 ## Installation
 
 ```bash
-cmake --install build --prefix /usr/local
+sudo cmake --install build --prefix /usr/local
 ```
 
 This installs:
@@ -133,6 +133,12 @@ With CMake:
 ```cmake
 find_package(LSPP REQUIRED)
 target_link_libraries(your_target PRIVATE LSPP::LSPP)
+```
+
+Or compile manually:
+
+```bash
+g++ -std=c++23 my_server.cpp -o my_server -lLSPP
 ```
 
 ## Project Structure
