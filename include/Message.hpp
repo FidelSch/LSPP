@@ -88,6 +88,10 @@ public:
 	};
 
 	Method method() const;
+
+	// Get the string name for a Method enum
+	static std::string methodToString(Method method);
+	static Method stringToMethod(const std::string &methodStr);
 };
 
 class Response

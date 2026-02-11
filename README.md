@@ -65,19 +65,24 @@ Here's a minimal LSP server that provides hover functionality:
 
 class MyServer : public LSPServer {
 public:
-    std::optional<hoverResult> hoverCallback(const hoverParams &params) override {
-        auto docOpt = m_documentHandler.getOpenDocument(params.textDocument.uri);
-        if (!docOpt) return std::nullopt;
+    MyServer() {
+        // Register hover callback using Method enum
+        registerCallback<hoverParams, std::optional<hoverResult>>(
+            Message::Method::HOVER,
+            [this](const hoverParams &params) -> std::optional<hoverResult> {
+                auto docOpt = m_documentHandler.getOpenDocument(params.textDocument.uri);
+                if (!docOpt) return std::nullopt;
 
-        std::string word = docOpt->get().wordUnderCursor(
-            params.position.line,
-            params.position.character
-        );
+                std::string word = docOpt->get().wordUnderCursor(
+                    params.position.line,
+                    params.position.character
+                );
 
-        return hoverResult{
-            {MarkupKind::PlainText, "Hover info for: " + word},
-            std::nullopt
-        };
+                return hoverResult{
+                    {MarkupKind::PlainText, "Hover info for: " + word},
+                    std::nullopt
+                };
+            });
     }
 };
 
@@ -171,26 +176,49 @@ LSP/
 
 ## API Overview
 
-LSPP uses a callback-based architecture. Inherit from `LSPServer` and override the methods you need:
+LSPP uses a **template-based callback registration system**. Register callbacks for LSP methods in your constructor:
 
-### Available Callbacks
-
-- `hoverCallback(hoverParams)` - Provide hover information
-- `definitionCallback(definitionParams)` - Go to definition
-- More capabilities coming soon...
-
-### Document Management
-
-Access opened documents via `m_documentHandler`:
+### Registering Callbacks
 
 ```cpp
-auto docOpt = m_documentHandler.getOpenDocument(uri);
-if (docOpt) {
-    const TextDocument& doc = docOpt->get();
-    std::string word = doc.wordUnderCursor(line, character);
-    std::string content = doc.getContent();
-}
+class MyLSPServer : public LSPServer {
+public:
+    MyLSPServer() {
+        // Option 1: Register using Method enum (recommended)
+        registerCallback<hoverParams, std::optional<hoverResult>>(
+            Message::Method::HOVER,
+            [this](const hoverParams& p) { return handleHover(p); }
+        );
+
+        registerCallback<definitionParams, definitionResult>(
+            Message::Method::DEFINITION,
+            [this](const definitionParams& p) { return handleDefinition(p); }
+        );
+
+        // Option 2: Register using method string
+        registerCallback<hoverParams, std::optional<hoverResult>>(
+            "textDocument/hover",
+            [this](const hoverParams& p) { return handleHover(p); }
+        );
+    }
+};
 ```
+
+### Available LSP Methods
+
+Common methods (use `Message::Method::` enum):
+
+- `HOVER` - Provide hover information
+- `DEFINITION` - Go to definition
+- `DECLARATION` - Go to declaration
+- `COMPLETION` - Code completion
+- `SIGNATURE_HELP` - Signature help
+- `REFERENCES` - Find references
+- And 40+ more LSP methods...
+  std::string content = doc.getContent();
+  }
+
+````
 
 ## Using with Editors
 
@@ -203,7 +231,7 @@ vim.lsp.config['LSPP'] = {
   root_markers = { '.git' },
 }
 vim.lsp.enable 'LSPP'
-```
+````
 
 ### VS Code
 

@@ -1,6 +1,8 @@
 #pragma once
 #include <thread>
 #include <atomic>
+#include <functional>
+#include <unordered_map>
 #include "ProtocolStructures.hpp"
 #include "textDocument.hpp"
 #include "Message.hpp"
@@ -32,6 +34,9 @@ class LSPServer
       std::istream *m_input_stream;
       std::ostream *m_output_stream;
 
+      // Generic callback storage
+      std::unordered_map<std::string, std::function<nlohmann::json(const nlohmann::json &)>> m_callbacks;
+
 protected:
       DocumentHandler m_documentHandler;
 
@@ -47,17 +52,33 @@ public:
       void processNotification(const Message &message);
       void send(const Response &response, bool flush = false);
 
-      virtual std::optional<hoverResult> hoverCallback(const hoverParams &params);
-      virtual definitionResult definitionCallback(const definitionParams &params);
-      virtual declarationResult declarationCallback(const declarationParams &params);
-};
+      // Generic callback registration (by string)
+      template <typename ParamsT, typename ResultT>
+      void registerCallback(const std::string &method, std::function<ResultT(const ParamsT &)> callback)
+      {
+            m_callbacks[method] = [callback](const nlohmann::json &params) -> nlohmann::json
+            {
+                  ParamsT typedParams = params.get<ParamsT>();
+                  ResultT result = callback(typedParams);
+                  return nlohmann::json(result);
+            };
+      }
 
-#define DEFAULT_HOVER_RESULT {{MarkupKind::PlainText, "some response for: " + m_documentHandler.getOpenDocument(params.textDocument.uri).value().get().wordUnderCursor(params.position.line, params.position.character)}, std::nullopt}
-#define DEFAULT_DEFINITION_RESULT                                \
-      {                                                          \
-            params.textDocument.uri, { {0, 0}, params.position } \
+      // Generic callback registration (by Method enum)
+      template <typename ParamsT, typename ResultT>
+      void registerCallback(Message::Method method, std::function<ResultT(const ParamsT &)> callback)
+      {
+            registerCallback<ParamsT, ResultT>(Message::methodToString(method), callback);
       }
-#define DEFAULT_DECLARATION_RESULT                               \
-      {                                                          \
-            params.textDocument.uri, { {0, 0}, params.position } \
+
+      // Helper to invoke callbacks
+      std::optional<nlohmann::json> invokeCallback(const std::string &method, const nlohmann::json &params)
+      {
+            auto it = m_callbacks.find(method);
+            if (it != m_callbacks.end())
+            {
+                  return it->second(params);
+            }
+            return std::nullopt;
       }
+};

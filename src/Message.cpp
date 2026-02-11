@@ -146,6 +146,117 @@ std::string Message::method_description() const
 
 Message::Method Message::method() const
 {
+	return stringToMethod(method_description());
+}
+
+std::string Message::methodToString(Message::Method method)
+{
+	static const std::unordered_map<Method, std::string> reverseMap = {
+	    {Method::INITIALIZE, "initialize"},
+	    {Method::SHUTDOWN, "shutdown"},
+	    {Method::EXIT, "exit"},
+	    {Method::TEXT_DOCUMENT_DID_OPEN, "textDocument/didOpen"},
+	    {Method::TEXT_DOCUMENT_DID_CHANGE, "textDocument/didChange"},
+	    {Method::TEXT_DOCUMENT_DID_CLOSE, "textDocument/didClose"},
+	    {Method::DECLARATION, "textDocument/declaration"},
+	    {Method::DEFINITION, "textDocument/definition"},
+	    {Method::TYPE_DEFINITION, "textDocument/typeDefinition"},
+	    {Method::IMPLEMENTATION, "textDocument/implementation"},
+	    {Method::REFERENCES, "textDocument/references"},
+	    {Method::PREPARE_CALL_HIERARCHY, "textDocument/prepareCallHierarchy"},
+	    {Method::INCOMING_CALLS, "callHierarchy/incomingCalls"},
+	    {Method::OUTGOING_CALLS, "callHierarchy/outgoingCalls"},
+	    {Method::PREPARE_TYPE_HIERARCHY, "textDocument/prepareTypeHierarchy"},
+	    {Method::TYPE_HIERARCHY_SUPERTYPES, "typeHierarchy/supertypes"},
+	    {Method::TYPE_HIERARCHY_SUBTYPES, "typeHierarchy/subtypes"},
+	    {Method::TEXT_DOCUMENT_HIGHLIGHT, "textDocument/documentHighlight"},
+	    {Method::TEXT_DOCUMENT_DOCUMENT_LINK, "textDocument/documentLink"},
+	    {Method::DOCUMENT_LINK_RESOLVE, "documentLink/resolve"},
+	    {Method::HOVER, "textDocument/hover"},
+	    {Method::TEXT_DOCUMENT_CODE_LENS, "textDocument/codeLens"},
+	    {Method::CODE_LENS_RESOLVE, "codeLens/resolve"},
+	    {Method::TEXT_DOCUMENT_FOLDING_RANGE, "textDocument/FoldingRange"},
+	    {Method::TEXT_DOCUMENT_SELECTION_RANGE, "textDocument/selectionRange"},
+	    {Method::TEXT_DOCUMENT_DOCUMENT_SYMBOL, "textDocument/documentSymbol"},
+	    {Method::TEXT_DOCUMENT_SEMANTIC_TOKENS_FULL, "textDocument/semanticTokens/full"},
+	    {Method::TEXT_DOCUMENT_SEMANTIC_TOKENS_FULL_DELTA, "textDocument/semanticTokens/full/delta"},
+	    {Method::TEXT_DOCUMENT_SEMANTIC_TOKENS_RANGE, "textDocument/semanticTokens/range"},
+	    {Method::TEXT_DOCUMENT_SEMANTIC_TOKENS_REFRESH, "textDocument/semanticTokens/refresh"},
+	    {Method::TEXT_DOCUMENT_INLAY_HINT, "textDocument/inlayHint"},
+	    {Method::INLAY_HINT_RESOLVE, "inlayHint/resolve"},
+	    {Method::TEXT_DOCUMENT_INLINE_VALUE, "textDocument/inlineValue"},
+	    {Method::TEXT_DOCUMENT_MONIKER, "textDocument/moniker"},
+	    {Method::TEXT_DOCUMENT_COMPLETION, "textDocument/completion"},
+	    {Method::COMPLETION_ITEM_RESOLVE, "completionItem/resolve"},
+	    {Method::TEXT_DOCUMENT_DIAGNOSTIC, "textDocument/diagnostic"},
+	    {Method::WORKSPACE_DIAGNOSTIC, "workspace/diagnostic"},
+	    {Method::TEXT_DOCUMENT_SIGNATURE_HELP, "textDocument/signatureHelp"},
+	    {Method::TEXT_DOCUMENT_CODE_ACTION, "textDocument/codeAction"},
+	    {Method::CODE_ACTION_RESOLVE, "codeAction/resolve"},
+	    {Method::TEXT_DOCUMENT_DOCUMENT_COLOR, "textDocument/documentColor"},
+	    {Method::TEXT_DOCUMENT_COLOR_PRESENTATION, "textDocument/colorPresentation"},
+	    {Method::TEXT_DOCUMENT_FORMATTING, "textDocument/formatting"},
+	    {Method::TEXT_DOCUMENT_RANGE_FORMATTING, "textDocument/rangeFormatting"},
+	    {Method::TEXT_DOCUMENT_ON_TYPE_FORMATTING, "textDocument/onTypeFormatting"},
+	    {Method::TEXT_DOCUMENT_RENAME, "textDocument/rename"},
+	    {Method::TEXT_DOCUMENT_PREPARE_RENAME, "textDocument/prepareRename"},
+	    {Method::TEXT_DOCUMENT_LINKED_EDITING_RANGE, "textDocument/linkedEditingRange"},
+	    {Method::WORKSPACE_CODE_LENS_REFRESH, "workspace/codeLens/refresh"},
+	    {Method::WORKSPACE_INLAY_HINT_REFRESH, "workspace/inlayHint/refresh"},
+	    {Method::WORKSPACE_INLINE_VALUE_REFRESH, "workspace/inlineValue/refresh"},
+	    {Method::TEXT_DOCUMENT_PUBLISH_DIAGNOSTICS, "textDocument/publishDiagnostics"},
+	    {Method::WORKSPACE_DIAGNOSTIC_REFRESH, "workspace/diagnostic/refresh"},
+	};
+
+	auto it = reverseMap.find(method);
+	if (it != reverseMap.end())
+	{
+		return it->second;
+	}
+	return ""; // Unknown method
+}
+
+nlohmann::json Message::params() const
+{
+	return m_jsonData["params"];
+}
+
+std::optional<int> Message::id() const
+{
+	if (m_jsonData.is_discarded() || !m_jsonData.contains("id"))
+		return std::nullopt;
+	return m_jsonData["id"].get<int>();
+}
+
+std::string Message::documentURI() const
+{
+	if (m_jsonData.is_discarded() || !params().contains("textDocument"))
+		return "";
+	return params()["textDocument"]["uri"];
+}
+
+void Message::log(const std::string_view &s)
+{
+	static char *logfile = std::getenv("LSPP_LOG_FILE");
+
+	if (!(logfile))
+	{
+		return;
+	}
+	try
+	{
+		std::ofstream file(logfile, std::ios::app);
+		file << std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()) << ">>" << s << '\n';
+		file.close();
+	}
+	catch (...)
+	{
+		// Silently fail - logging is non-critical
+	}
+}
+
+Message::Method Message::stringToMethod(const std::string &methodStr)
+{
 	static const std::unordered_map<std::string, Method> methodMap = {
 	    // Notifications
 	    {"initialize", Message::Method::INITIALIZE},
@@ -210,48 +321,9 @@ Message::Method Message::method() const
 	    {"workspace/diagnostic/refresh", Message::Method::WORKSPACE_DIAGNOSTIC_REFRESH},
 	};
 
-	if (methodMap.count(method_description()))
+	if (methodMap.count(methodStr))
 	{
-		return methodMap.at(method_description());
+		return methodMap.at(methodStr);
 	}
 	return Message::Method::NONE; // Default case
-}
-
-nlohmann::json Message::params() const
-{
-	return m_jsonData["params"];
-}
-
-std::optional<int> Message::id() const
-{
-	if (m_jsonData.is_discarded() || !m_jsonData.contains("id"))
-		return std::nullopt;
-	return m_jsonData["id"].get<int>();
-}
-
-std::string Message::documentURI() const
-{
-	if (m_jsonData.is_discarded() || !params().contains("textDocument"))
-		return "";
-	return params()["textDocument"]["uri"];
-}
-
-void Message::log(const std::string_view &s)
-{
-	static char *logfile = std::getenv("LSPP_LOG_FILE");
-
-	if (!(logfile))
-	{
-		return;
-	}
-	try
-	{
-		std::ofstream file(logfile, std::ios::app);
-		file << std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()) << ">>" << s << '\n';
-		file.close();
-	}
-	catch (...)
-	{
-		// Silently fail - logging is non-critical
-	}
 }

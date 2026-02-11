@@ -59,6 +59,28 @@ TEST(Message, parse_method)
       ASSERT_EQ(Message::Method::DEFINITION, m2.method());
 }
 
+TEST(Message, method_lookup)
+{
+      std::vector<Message::Method> methods = {
+          Message::Method::INITIALIZE,
+          Message::Method::HOVER,
+          Message::Method::DEFINITION,
+          Message::Method::TEXT_DOCUMENT_DID_OPEN,
+          Message::Method::TEXT_DOCUMENT_DID_CHANGE,
+          Message::Method::TEXT_DOCUMENT_DID_CLOSE,
+          Message::Method::DECLARATION,
+          Message::Method::TYPE_DEFINITION,
+          Message::Method::IMPLEMENTATION,
+          Message::Method::REFERENCES,
+          // etc ....
+      };
+
+      for (auto method : methods)
+      {
+            ASSERT_EQ(method, Message::stringToMethod(Message::methodToString(method)));
+      }
+}
+
 int main()
 {
       ::testing::InitGoogleTest();

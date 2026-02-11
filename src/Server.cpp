@@ -134,25 +134,6 @@ void LSPServer::server_main(LSPServer *server)
       }
 }
 
-std::optional<hoverResult> LSPServer::hoverCallback(const hoverParams &params)
-{
-      if (m_documentHandler.documentIsOpen(params.textDocument.uri))
-      {
-            return std::make_optional<hoverResult>(DEFAULT_HOVER_RESULT);
-      }
-      return std::nullopt;
-}
-
-definitionResult LSPServer::definitionCallback(const definitionParams &params)
-{
-      return DEFAULT_DEFINITION_RESULT;
-}
-
-declarationResult LSPServer::declarationCallback(const declarationParams &params)
-{
-      return DEFAULT_DECLARATION_RESULT;
-}
-
 bool LSPServer::hasCapability(uint64_t capability) const
 {
       return (m_capabilities.advertisedCapabilities & capability);
@@ -200,7 +181,11 @@ Response LSPServer::processRequest(const Message &message)
       {
             if (hasCapability(ServerCapabilities::hoverProvider))
             {
-                  response.setResult(hoverCallback(message.params()));
+                  auto result = invokeCallback("textDocument/hover", message.params());
+                  if (result)
+                  {
+                        response.setResult(*result);
+                  }
             }
             break;
       }
@@ -208,7 +193,11 @@ Response LSPServer::processRequest(const Message &message)
       {
             if (hasCapability(ServerCapabilities::definitionProvider))
             {
-                  response.setResult(definitionCallback(message.params()));
+                  auto result = invokeCallback("textDocument/definition", message.params());
+                  if (result)
+                  {
+                        response.setResult(*result);
+                  }
             }
             break;
       }
@@ -216,7 +205,11 @@ Response LSPServer::processRequest(const Message &message)
       {
             if (hasCapability(ServerCapabilities::declarationProvider))
             {
-                  response.setResult(declarationCallback(message.params()));
+                  auto result = invokeCallback("textDocument/declaration", message.params());
+                  if (result)
+                  {
+                        response.setResult(*result);
+                  }
             }
             break;
       }
