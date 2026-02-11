@@ -177,45 +177,39 @@ Response LSPServer::processRequest(const Message &message)
             // Mark shutdown but keep serving to allow 'exit' and to error any other requests
             m_shutdownRequested = true;
             break;
-      case Message::Method::HOVER:
-      {
-            if (hasCapability(ServerCapabilities::hoverProvider))
-            {
-                  auto result = invokeCallback("textDocument/hover", message.params());
-                  if (result)
-                  {
-                        response.setResult(*result);
-                  }
-            }
-            break;
-      }
-      case Message::Method::DEFINITION:
-      {
-            if (hasCapability(ServerCapabilities::definitionProvider))
-            {
-                  auto result = invokeCallback("textDocument/definition", message.params());
-                  if (result)
-                  {
-                        response.setResult(*result);
-                  }
-            }
-            break;
-      }
-      case Message::Method::DECLARATION:
-      {
-            if (hasCapability(ServerCapabilities::declarationProvider))
-            {
-                  auto result = invokeCallback("textDocument/declaration", message.params());
-                  if (result)
-                  {
-                        response.setResult(*result);
-                  }
-            }
-            break;
-      }
       case Message::Method::NONE:
-      default:
             response.setError({{"code", -32601}, {"message", "Method not found"}});
+      default:
+      {
+            // Generic handler for all LSP methods with callbacks
+            uint64_t requiredCapability = capabilityFlagForMethod(message.method());
+
+            // If no capability required (0) or capability is advertised, try to invoke callback
+            if (requiredCapability == 0 || hasCapability(requiredCapability))
+            {
+                  auto result = invokeCallback(message);
+                  if (result)
+                  {
+                        response.setResult(*result);
+                  }
+                  else if (requiredCapability != 0)
+                  {
+                        // Capability advertised but no callback registered
+                        response.setError({{"code", -32601}, {"message", "Method not implemented"}});
+                  }
+                  else
+                  {
+                        // Unknown method
+                        response.setError({{"code", -32601}, {"message", "Method not found"}});
+                  }
+            }
+            else
+            {
+                  // Capability not advertised
+                  response.setError({{"code", -32601}, {"message", "Method not supported"}});
+            }
+            break;
+      }
       }
 
       return response;
