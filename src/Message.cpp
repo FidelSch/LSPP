@@ -7,6 +7,7 @@
 #include <cassert>
 #include <fstream>
 #include <optional>
+#include <algorithm>
 
 Message::Message() : m_buffer(nullptr), m_payloadSize(0), m_jsonData(nlohmann::json::value_t::null) {}
 
@@ -58,64 +59,82 @@ int Message::readMessage(std::istream &stream)
 	m_payloadSize = 0;
 
 	// Check if stream is in good state before reading
-	if (!stream.good() || stream.eof())
+	if (!stream.good() && !stream.eof())
 	{
-		return -1; // Signal EOF/error
+		return -1; // Signal error (but allow eof)
 	}
 
-	stream.clear();
-	stream.ignore(15);
-
-	// Check for EOF after ignore
-	if (stream.eof() || stream.fail())
+	// Read header line: "Content-Length: <size>" (case-insensitive)
+	std::string headerLine;
+	if (!std::getline(stream, headerLine))
 	{
-		return -1;
+		return -1; // Failed to read header
 	}
 
-	// Clear any lingering error flags before critical read
-	stream.clear();
-
-	// Initialize to sentinel value to detect read failures
-	size_t temp_size = SIZE_MAX;
-	stream >> temp_size;
-
-	// Check for read failure or EOF
-	// Use reasonable upper limit (10MB) to prevent bad_alloc from malformed/malicious data
-	constexpr size_t MAX_MESSAGE_SIZE = 10 * 1024 * 1024; // 10 MB
-	if (stream.fail() || stream.eof() || temp_size == SIZE_MAX || temp_size == 0 || temp_size > MAX_MESSAGE_SIZE)
+	// Remove trailing whitespace/carriage return
+	while (!headerLine.empty() && (headerLine.back() == '\r' || headerLine.back() == '\n' || headerLine.back() == ' '))
 	{
-		stream.clear(); // Clear error state for potential reuse
-		return -1;
+		headerLine.pop_back();
 	}
 
-	m_payloadSize = temp_size;
+	// Parse "Content-Length: <size>" (case-insensitive)
+	const std::string headerPrefixLower = "content-length: ";
+	std::string headerLower = headerLine;
+	std::transform(headerLower.begin(), headerLower.end(), headerLower.begin(), ::tolower);
+	if (headerLower.size() < headerPrefixLower.size() || headerLower.substr(0, headerPrefixLower.size()) != headerPrefixLower)
+	{
+		return -1; // Invalid header format
+	}
 
-	// Protect against calloc failure with explicit check
-	m_buffer = static_cast<char *>(calloc(m_payloadSize + 2, 1));
+	size_t temp_size = 0;
+	try
+	{
+		std::string sizeStr = headerLine.substr(headerPrefixLower.size());
+		temp_size = std::stoul(sizeStr);
+
+		// Use reasonable upper limit (10MB) to prevent bad_alloc from malformed/malicious data
+		constexpr size_t MAX_MESSAGE_SIZE = 10 * 1024 * 1024; // 10 MB
+		if (temp_size == 0 || temp_size > MAX_MESSAGE_SIZE)
+		{
+			return -1; // Invalid size
+		}
+	}
+	catch (const std::exception &)
+	{
+		return -1; // Parsing failed
+	}
+
+	// Skip the blank line (\r\n)
+	std::string blankLine;
+	if (!std::getline(stream, blankLine))
+	{
+		return -1; // Failed to skip blank line
+	}
+
+	// Allocate buffer for payload
+	m_buffer = static_cast<char *>(malloc(temp_size + 1));
 	if (!m_buffer)
 	{
-		m_payloadSize = 0;
 		return -1;
 	}
 
-	stream.clear();
-	stream.ignore(4);
-
-	stream.clear();
-	stream.read(m_buffer, m_payloadSize);
-
-	// Check if read was successful
-	if (stream.fail() && !stream.eof())
+	// Read JSON payload - use a new scope to ensure stream ref goes out of scope quickly
 	{
-		free(m_buffer);
-		m_buffer = nullptr;
-		m_payloadSize = 0;
-		return -1;
+		stream.read(m_buffer, temp_size);
+		std::streamsize bytesRead = stream.gcount();
+		if (bytesRead != static_cast<std::streamsize>(temp_size))
+		{
+			free(m_buffer);
+			m_buffer = nullptr;
+			return -1;
+		}
 	}
+
+	// Null-terminate the buffer
+	m_buffer[temp_size] = '\0';
+	m_payloadSize = temp_size;
 
 	// Parse JSON with exception handling
-	// Use non-throwing parse (third parameter = false) which returns discarded JSON on error
-	// But still protect against bad_alloc which can be thrown during parsing
 	try
 	{
 		m_jsonData = nlohmann::json::parse(m_buffer, nullptr, false);
@@ -128,10 +147,9 @@ int Message::readMessage(std::istream &stream)
 		m_payloadSize = 0;
 		return -1;
 	}
-	catch (...)
+	catch (const std::exception &)
 	{
-		// Unexpected exception during parsing - m_jsonData stays as null (initialized in constructor)
-		// Keep buffer for debugging, but return success since we have the raw data
+		// JSON parsing failed - still keep the buffer
 	}
 
 	return m_payloadSize;
@@ -139,7 +157,7 @@ int Message::readMessage(std::istream &stream)
 
 std::string Message::method_description() const
 {
-	if (m_jsonData.is_discarded())
+	if (m_jsonData.is_discarded() || m_jsonData.is_null() || !m_jsonData.contains("method"))
 		return "";
 	return m_jsonData["method"];
 }
@@ -218,21 +236,26 @@ std::string Message::methodToString(Message::Method method)
 
 nlohmann::json Message::params() const
 {
+	if (m_jsonData.is_discarded() || m_jsonData.is_null() || !m_jsonData.contains("params"))
+		return nlohmann::json::object();
 	return m_jsonData["params"];
 }
 
 std::optional<int> Message::id() const
 {
-	if (m_jsonData.is_discarded() || !m_jsonData.contains("id"))
+	if (m_jsonData.is_discarded() || m_jsonData.is_null() || !m_jsonData.contains("id"))
 		return std::nullopt;
 	return m_jsonData["id"].get<int>();
 }
 
 std::string Message::documentURI() const
 {
-	if (m_jsonData.is_discarded() || !params().contains("textDocument"))
+	if (m_jsonData.is_discarded() || m_jsonData.is_null())
 		return "";
-	return params()["textDocument"]["uri"];
+	auto p = params();
+	if (!p.contains("textDocument") || !p["textDocument"].contains("uri"))
+		return "";
+	return p["textDocument"]["uri"];
 }
 
 void Message::log(const std::string_view &s)

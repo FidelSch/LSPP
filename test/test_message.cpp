@@ -46,8 +46,8 @@ TEST(Message, parsing)
 
 TEST(Message, parse_method)
 {
-      std::istringstream s("Content-Length: 146\r\n\r\n{\"jsonrpc\":\"2.0\",\"method\":\"textDocument/hover\",\"params\":{\"textDocument\":{\"uri\":\"file:///test.cpp\"},\"position\":{\"line\":10,\"character\":5}},\"id\":2}");
-      std::istringstream s2("Content-Length: 151\r\n\r\n{\"jsonrpc\":\"2.0\",\"method\":\"textDocument/definition\",\"params\":{\"textDocument\":{\"uri\":\"file:///test.cpp\"},\"position\":{\"line\":10,\"character\":5}},\"id\":2}");
+      std::istringstream s("Content-Length: 144\r\n\r\n{\"jsonrpc\":\"2.0\",\"method\":\"textDocument/hover\",\"params\":{\"textDocument\":{\"uri\":\"file:///test.cpp\"},\"position\":{\"line\":10,\"character\":5}},\"id\":2}");
+      std::istringstream s2("Content-Length: 149\r\n\r\n{\"jsonrpc\":\"2.0\",\"method\":\"textDocument/definition\",\"params\":{\"textDocument\":{\"uri\":\"file:///test.cpp\"},\"position\":{\"line\":10,\"character\":5}},\"id\":2}");
 
       Message m(s);
       Message m2(s2);

@@ -6,7 +6,7 @@
 #include "ProtocolStructures.hpp"
 #include <map>
 
-LSPServer::LSPServer() : m_listener(), force_shutdown(false), isOKtoExit(false), m_shutdownRequested(false), m_initialized(false), m_input_stream(&std::cin), m_output_stream(&std::cout) {}
+LSPServer::LSPServer() : m_listener(), force_shutdown(false), thread_exiting(false), isOKtoExit(false), m_shutdownRequested(false), m_initialized(false), m_input_stream(&std::cin), m_output_stream(&std::cout) {}
 
 LSPServer::~LSPServer()
 {
@@ -17,6 +17,7 @@ LSPServer::~LSPServer()
 int LSPServer::init(const uint64_t &capabilities, std::istream &in, std::ostream &out)
 {
       force_shutdown.store(false);
+      thread_exiting.store(false);
       isOKtoExit = false;
       m_shutdownRequested = false;
       m_initialized = false;
@@ -31,7 +32,7 @@ int LSPServer::init(const uint64_t &capabilities, std::istream &in, std::ostream
 
 void LSPServer::stop()
 {
-      // TODO: Graceful shutdown actions, interrupt ongoing tasks, etc.
+      // Signal shutdown to the server thread
       force_shutdown.store(true);
       return;
 }
@@ -40,6 +41,12 @@ int LSPServer::exit()
 {
       if (m_listener.joinable())
       {
+            // Wait for thread to signal it's exiting (with timeout to prevent deadlock)
+            auto start = std::chrono::steady_clock::now();
+            while (!thread_exiting.load() && std::chrono::steady_clock::now() - start < std::chrono::milliseconds(1000))
+            {
+                  std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
             // Wait for listener thread to finish
             m_listener.join();
       }
@@ -48,6 +55,9 @@ int LSPServer::exit()
 
 void LSPServer::send(const Response &response, bool flush)
 {
+      // Lock the output stream to prevent data races
+      std::lock_guard<std::mutex> lock(m_output_mutex);
+      
       try
       {
             std::string output = response.toString();
@@ -84,6 +94,16 @@ void LSPServer::send(const Response &response, bool flush)
       }
 }
 
+std::string LSPServer::getOutputSafe(std::ostringstream *out_stream) const
+{
+      std::lock_guard<std::mutex> lock(m_output_mutex);
+      if (out_stream && m_output_stream == out_stream)
+      {
+            return out_stream->str();
+      }
+      return "";
+}
+
 void LSPServer::server_main(LSPServer *server)
 {
       Message message;
@@ -91,6 +111,10 @@ void LSPServer::server_main(LSPServer *server)
 
       while (!server->force_shutdown.load())
       {
+            // Check again before attempting read to avoid blocking if shutdown was signaled
+            if (server->force_shutdown.load())
+                  break;
+
             int readBytes = message.readMessage(*server->m_input_stream);
             if (readBytes < 0)
             {
@@ -132,6 +156,9 @@ void LSPServer::server_main(LSPServer *server)
                   // Log failure is non-critical
             }
       }
+      
+      // Signal that thread is exiting (before destroying local objects)
+      server->thread_exiting.store(true);
 }
 
 bool LSPServer::hasCapability(uint64_t capability) const

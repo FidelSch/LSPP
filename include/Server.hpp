@@ -3,6 +3,7 @@
 #include <atomic>
 #include <functional>
 #include <unordered_map>
+#include <mutex>
 #include "ProtocolStructures.hpp"
 #include "textDocument.hpp"
 #include "Message.hpp"
@@ -26,6 +27,7 @@ class LSPServer
 {
       std::thread m_listener;
       std::atomic<bool> force_shutdown;
+      std::atomic<bool> thread_exiting;  // Signals when thread is about to exit
       bool isOKtoExit;
       bool m_shutdownRequested;
       bool m_initialized;
@@ -33,6 +35,7 @@ class LSPServer
 
       std::istream *m_input_stream;
       std::ostream *m_output_stream;
+      mutable std::mutex m_output_mutex; // Protects m_output_stream (mutable for const methods)
 
       // Generic callback storage
       std::unordered_map<std::string, std::function<nlohmann::json(const nlohmann::json &)>> m_callbacks;
@@ -51,6 +54,10 @@ public:
       Response processRequest(const Message &message);
       void processNotification(const Message &message);
       void send(const Response &response, bool flush = false);
+      
+      // Thread-safe method to get output (for testing)
+      std::string getOutputSafe(std::ostringstream *out_stream) const;
+
 
       // Generic callback registration (by string)
       template <typename ParamsT, typename ResultT>

@@ -79,7 +79,7 @@ namespace testutil
             auto start = std::chrono::steady_clock::now();
             while (true)
             {
-                  wire = out.str();
+                  wire = server.getOutputSafe(&out);
                   const auto headerEnd = wire.find("\r\n\r\n");
                   if (headerEnd != std::string::npos)
                   {
@@ -161,7 +161,7 @@ namespace testutil
 
             while (true)
             {
-                  auto wire = out.str();
+                  auto wire = server.getOutputSafe(&out);
                   responses = parseAllResponses(wire);
                   if (responses.size() >= payloads.size())
                         break;
@@ -172,11 +172,15 @@ namespace testutil
                   if (expected_responses > 0 && responses.size() >= expected_responses)
                         break;
 
-                  // std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                  // Small sleep to reduce CPU usage and prevent data races
+                  std::this_thread::sleep_for(std::chrono::milliseconds(1));
             }
 
             // Shutdown server
             server.stop();
+
+            // Give thread time to exit cleanly
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
             int code = server.exit();
 
